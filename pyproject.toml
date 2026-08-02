@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "enlace_metering"
+version = "0.0.1"
+description = "Usage tracking + credit/quota access-gating for enlace MCP connectors (strategy-pattern policies + a durable ledger)"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["enlace", "metering", "usage", "quota", "credits", "billing", "mcp", "rate-limit"]
+authors = [{ name = "Thor Whalen" }]
+# The core (policy + ledger) is dependency-free — the ledger store is any
+# MutableMapping (DI'd). Only the FastMCP middleware needs a dep, hence the [mcp] extra.
+dependencies = []
+
+[project.license]
+text = "Apache-2.0"
+
+[project.urls]
+Homepage = "https://github.com/i2mint/enlace_metering"
+
+[project.optional-dependencies]
+# The FastMCP metering middleware (enlace_metering.middleware).
+mcp = ["fastmcp>=2.0"]
+dev = ["pytest", "fastmcp>=2.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["enlace_metering"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "D100"]
+# E501 (line length) is cosmetic and off across the i2mint/thorwhalen ecosystem.
+ignore = ["D203", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]
+
+[tool.wads.ci]
+installer = "uv"
+
+[tool.wads.ci.install]
+extras = "dev"
