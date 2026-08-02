@@ -23,6 +23,7 @@ recorded) by adding the policy gate + a proposed-cost estimate hook.
 from __future__ import annotations
 
 import itertools
+import logging
 import time
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -33,6 +34,15 @@ from fastmcp.server.middleware import Middleware
 
 from .ledger import UsageLedger, safe_principal
 from .policy import GatePolicy, GateRequest, unlimited
+
+_logger = logging.getLogger(__name__)
+
+#: Cost keys to look for in a tool result's ``structured_content``, in priority order.
+#: Connectors emit different names for the ACTUAL spend of a call (braidio: ``cost_usd``;
+#: reelee: ``cost_usd_actual``) — the default extractor tries each so a host's cap +
+#: attribution work without a per-connector override. (NOT plan-estimate keys like
+#: ``total_cost_usd`` — those are pre-spend estimates, not what was actually charged.)
+COST_KEYS = ("cost_usd_actual", "cost_usd")
 
 #: Set by :class:`MeteringMiddleware` for the duration of a tool call; read by
 #: :func:`current_email`. Tools + per-user stores key off this one identity SSOT.
@@ -82,12 +92,17 @@ def current_email() -> str:
 
 
 def _default_extract_cost(result: Any) -> Optional[float]:
-    """Read ``cost_usd`` from a tool result's ``structured_content`` (the convention)."""
+    """Read the actual spend from a tool result's ``structured_content``.
+
+    Tries :data:`COST_KEYS` in order, so it meters connectors that emit either
+    ``cost_usd_actual`` (reelee) or ``cost_usd`` (braidio) with no override.
+    """
     out = getattr(result, "structured_content", None)
     if isinstance(out, dict):
-        cost = out.get("cost_usd")
-        if isinstance(cost, (int, float)):
-            return float(cost)
+        for key in COST_KEYS:
+            cost = out.get(key)
+            if isinstance(cost, (int, float)):
+                return float(cost)
     return None
 
 
@@ -118,6 +133,7 @@ class MeteringMiddleware(Middleware):
         allow_any_authenticated: bool = False,
         estimate_cost: Optional[CostEstimator] = None,
         extract_cost: Optional[CostExtractor] = None,
+        metered_tools: Optional[set[str]] = None,
     ):
         self.ledger = ledger
         self.policy: GatePolicy = policy or unlimited()
@@ -126,6 +142,11 @@ class MeteringMiddleware(Middleware):
         self.allow_any = allow_any_authenticated
         self.estimate_cost = estimate_cost
         self.extract_cost = extract_cost or _default_extract_cost
+        # When given, only these tools are GATED by the policy; others are still
+        # recorded but never denied — so a principal who hit their cap can still call
+        # free/read-only tools (list/get/help) to retrieve what they already made.
+        # ``None`` gates every tool.
+        self.metered_tools = set(metered_tools) if metered_tools is not None else None
         self._seq = itertools.count()
 
     def _authorize(self) -> str:
@@ -162,22 +183,25 @@ class MeteringMiddleware(Middleware):
         args = getattr(context.message, "arguments", None) or {}
         now = datetime.now(timezone.utc)
 
-        # Gate BEFORE spending. A proposed-cost estimate makes it forward-looking;
-        # otherwise the policy blocks on already-accumulated usage.
+        # Gate BEFORE spending — but only metered tools (when a set is configured);
+        # free/read-only tools are recorded, never denied. A proposed-cost estimate
+        # makes the gate forward-looking; otherwise the policy blocks on already-
+        # accumulated usage.
         proposed = None
-        if self.estimate_cost is not None:
-            try:
-                proposed = self.estimate_cost(tool, args)
-            except Exception:  # noqa: BLE001 — a bad estimate must not crash the gate
-                proposed = None
-        decision = self.policy(
-            GateRequest(
-                principal=email, ledger=self.ledger, now=now,
-                proposed_cost_usd=proposed, tool=tool,
+        if self.metered_tools is None or tool in self.metered_tools:
+            if self.estimate_cost is not None:
+                try:
+                    proposed = self.estimate_cost(tool, args)
+                except Exception:  # noqa: BLE001 — a bad estimate must not crash the gate
+                    proposed = None
+            decision = self.policy(
+                GateRequest(
+                    principal=email, ledger=self.ledger, now=now,
+                    proposed_cost_usd=proposed, tool=tool,
+                )
             )
-        )
-        if not decision.allow:
-            raise ToolError(f"usage limit reached: {decision.reason}")
+            if not decision.allow:
+                raise ToolError(f"usage limit reached: {decision.reason}")
 
         t0 = time.time_ns()
         entry = {
@@ -219,7 +243,14 @@ class MeteringMiddleware(Middleware):
             try:
                 self.ledger.record(entry)
             except Exception:  # noqa: BLE001 — the write-ahead 'started' row is the trace
-                pass
+                # Don't crash the call over a metering update, but don't hide it either:
+                # a lost 'done' row means this call's cost_usd is absent from the ledger,
+                # so spend_since undercounts (a cap could later be crossed silently).
+                _logger.warning(
+                    "enlace_metering: ledger update failed for entry %s "
+                    "(started row retained; its cost_usd will be missing)",
+                    entry.get("id"),
+                )
 
 
 __all__ = [

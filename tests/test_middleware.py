@@ -123,6 +123,71 @@ def test_writeahead_refuses_if_ledger_unavailable(monkeypatch):
         _run(mw.on_call_tool(_Ctx("render"), _ok_call_next))
 
 
+def test_default_extract_cost_reads_either_key(monkeypatch):
+    # reelee emits cost_usd_actual; braidio emits cost_usd — both must be metered by
+    # the default extractor (the #232 review's headline bug: reelee's cap was a no-op).
+    for key in ("cost_usd_actual", "cost_usd"):
+        store = {}
+        mw = MeteringMiddleware(
+            UsageLedger(store), policy=unlimited(), allowed={"o@x.com"}
+        )
+        monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+
+        async def _next(ctx, _k=key):
+            return _Result({_k: 2.5})
+
+        _run(mw.on_call_tool(_Ctx("render"), _next))
+        (entry,) = store.values()
+        assert entry["cost_usd"] == pytest.approx(2.5), key
+
+
+def test_cap_fires_with_cost_usd_actual(monkeypatch):
+    # End-to-end: a capped principal is denied after cost_usd_actual accumulates past
+    # the cap (this is exactly what silently failed for reelee before the extractor fix).
+    from enlace_metering import credit_cap
+
+    store = {}
+    mw = MeteringMiddleware(
+        UsageLedger(store), policy=credit_cap(1.0, period="month"), allowed={"o@x.com"}
+    )
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+
+    async def _spendy(ctx):
+        return _Result({"cost_usd_actual": 1.5})
+
+    _run(mw.on_call_tool(_Ctx("run_stage"), _spendy))  # records $1.50
+    with pytest.raises(ToolError, match="usage limit"):  # now over the $1 cap
+        _run(mw.on_call_tool(_Ctx("run_stage"), _spendy))
+
+
+def test_metered_tools_exempts_free_tools(monkeypatch):
+    # A capped principal must still be able to call FREE/read-only tools (list/get/help)
+    # to retrieve what they already made — only metered tools are gated.
+    from enlace_metering import credit_cap
+
+    store = {}
+    led = UsageLedger(store)
+    now = datetime.now(timezone.utc)
+    led.record(
+        {
+            "principal": "o@x.com", "id": "prev", "month": now.strftime("%Y-%m"),
+            "ts": now.isoformat(), "cost_usd": 5.0, "status": "done",
+        }
+    )  # already over a $1 cap
+    mw = MeteringMiddleware(
+        led, policy=credit_cap(1.0), allowed={"o@x.com"}, metered_tools={"render"}
+    )
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+
+    async def _next(ctx):
+        return _Result({})
+
+    with pytest.raises(ToolError, match="usage limit"):  # metered tool: denied
+        _run(mw.on_call_tool(_Ctx("render"), _next))
+    r = _run(mw.on_call_tool(_Ctx("list_assets"), _next))  # free tool: allowed
+    assert isinstance(r, _Result)
+
+
 def test_current_email_requires_context():
     with pytest.raises(ToolError):
         mw_mod.current_email()
