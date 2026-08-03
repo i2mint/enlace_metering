@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from enlace_metering.ledger import UsageLedger, safe_principal
+from enlace_metering.ledger import UsageLedger, safe_key_component, safe_principal
 
 NOW = datetime(2026, 8, 15, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -69,3 +69,44 @@ def test_safe_principal_rejects_traversal():
         with pytest.raises(ValueError):
             safe_principal(bad)
     assert safe_principal("Owner@X.com") == "owner@x.com"
+
+
+def test_record_rejects_traversal_in_id_and_month():
+    # The entry id embeds the (client-supplied) tool name, so it is as
+    # caller-influenced as the principal and must be traversal-checked too.
+    store = {}
+    led = UsageLedger(store)
+    with pytest.raises(ValueError):
+        led.record(_entry("a@x.com", "1-0-../../../etc/pwn"))
+    with pytest.raises(ValueError):
+        led.record(_entry("a@x.com", "ok", month="../.."))
+    assert store == {}
+
+
+def test_safe_key_component_preserves_case():
+    # Unlike safe_principal, a generic component is not lowercased (ids are opaque).
+    assert safe_key_component(" AbC ", what="id") == "AbC"
+    with pytest.raises(ValueError):
+        safe_key_component("a/b", what="id")
+
+
+def test_naive_entry_timestamp_is_read_as_utc():
+    # A ts written without an offset must not blow up the aware/naive comparison
+    # (that would turn one bad row into a hard failure of every gated call).
+    store = {}
+    led = UsageLedger(store)
+    entry = _entry("a@x.com", "naive", cost=1.5)
+    entry["ts"] = NOW.replace(tzinfo=None).isoformat()  # "2026-08-15T12:00:00"
+    led.record(entry)
+    assert led.spend_since("a@x.com", NOW - timedelta(hours=1)) == pytest.approx(1.5)
+    assert led.count_since("a@x.com", NOW - timedelta(hours=1)) == 1
+    assert led.spend_since("a@x.com", NOW + timedelta(hours=1)) == 0.0
+
+
+def test_naive_since_is_read_as_utc():
+    store = {}
+    led = UsageLedger(store)
+    led.record(_entry("a@x.com", "1", cost=2.0))
+    naive_since = (NOW - timedelta(hours=1)).replace(tzinfo=None)
+    assert led.spend_since("a@x.com", naive_since) == pytest.approx(2.0)
+    assert led.count_since("a@x.com", naive_since) == 1

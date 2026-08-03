@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import re
 import time
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -104,6 +105,28 @@ def _default_extract_cost(result: Any) -> Optional[float]:
             if isinstance(cost, (int, float)):
                 return float(cost)
     return None
+
+
+#: Characters allowed in the tool slug embedded in a ledger entry id. The tool name in
+#: a ``tools/call`` is client-supplied and reaches the middleware *before* the tool is
+#: resolved, so it must never flow verbatim into a storage key.
+_TOOL_SLUG_RE = re.compile(r"[^A-Za-z0-9._-]")
+
+#: Cap on the tool slug so a pathological name can't produce an unwritable key.
+_TOOL_SLUG_MAX = 64
+
+
+def _tool_slug(tool: Optional[str]) -> str:
+    """A key-safe slug for a client-supplied tool name (the raw name is still recorded).
+
+    The ledger entry id is ``{ns}-{seq}-{slug}`` and the ledger key embeds that id, so
+    an unresolved/hostile name like ``../../etc/x`` must not reach the store. Anything
+    outside ``[A-Za-z0-9._-]`` becomes ``_``; the raw name stays in the entry's
+    ``tool`` field, so the audit trail is unchanged.
+    """
+    return _TOOL_SLUG_RE.sub("_", str(tool) if tool is not None else "unknown")[
+        :_TOOL_SLUG_MAX
+    ]
 
 
 class MeteringMiddleware(Middleware):
@@ -208,7 +231,7 @@ class MeteringMiddleware(Middleware):
 
         t0 = time.time_ns()
         entry = {
-            "id": f"{t0}-{next(self._seq)}-{tool}",
+            "id": f"{t0}-{next(self._seq)}-{_tool_slug(tool)}",
             "principal": email,
             "month": now.strftime("%Y-%m"),
             "ts": now.isoformat(),

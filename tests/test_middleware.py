@@ -192,6 +192,30 @@ def test_metered_tools_exempts_free_tools(monkeypatch):
     assert isinstance(r, _Result)
 
 
+def test_hostile_tool_name_cannot_escape_the_ledger_prefix(monkeypatch):
+    # `tools/call` carries a client-supplied name and the middleware runs BEFORE the
+    # tool is resolved, so the name reaches the write-ahead row even when no such tool
+    # exists. It must not flow verbatim into the storage key (a dol file store would
+    # write outside the ledger tree).
+    store = {}
+    mw = MeteringMiddleware(UsageLedger(store), policy=unlimited(), allowed={"o@x.com"})
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+
+    async def _boom(ctx):
+        raise RuntimeError("no such tool")
+
+    with pytest.raises(RuntimeError):
+        _run(mw.on_call_tool(_Ctx("../../../etc/pwn"), _boom))
+    (key,) = store
+    principal, month, entry_id = key.split("/")  # exactly three components
+    assert principal == "o@x.com"
+    assert entry_id.endswith(".json")
+    assert "\\" not in key and ".." not in key.split("/")  # no traversal segment
+    # the raw name is still recorded, so the audit trail is unchanged
+    (entry,) = store.values()
+    assert entry["tool"] == "../../../etc/pwn"
+
+
 def test_current_email_requires_context():
     with pytest.raises(ToolError):
         mw_mod.current_email()
