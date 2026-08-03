@@ -88,13 +88,15 @@ def test_balance_gate():
 
 
 def test_per_principal_routing_and_deny_by_default():
-    pol = P.per_principal(
-        {"Owner@X.com": P.unlimited()}, default=P.credit_cap(1.0)
-    )
-    assert pol(_req(principal="owner@x.com", spend=1e6)).allow is True  # owner, case-insensitive
+    pol = P.per_principal({"Owner@X.com": P.unlimited()}, default=P.credit_cap(1.0))
+    assert (
+        pol(_req(principal="owner@x.com", spend=1e6)).allow is True
+    )  # owner, case-insensitive
     assert pol(_req(principal="other@x.com", spend=5.0)).allow is False  # default cap
     no_default = P.per_principal({"owner@x.com": P.unlimited()})
-    assert no_default(_req(principal="stranger@x.com")).allow is False  # deny-by-default
+    assert (
+        no_default(_req(principal="stranger@x.com")).allow is False
+    )  # deny-by-default
 
 
 def test_require_all_first_denial_wins():
@@ -108,7 +110,9 @@ def test_require_all_first_denial_wins():
 def test_period_start_boundaries():
     assert P._period_start(NOW, "month") == datetime(2026, 8, 1, tzinfo=timezone.utc)
     assert P._period_start(NOW, "day") == datetime(2026, 8, 15, tzinfo=timezone.utc)
-    assert P._period_start(NOW, "hour") == datetime(2026, 8, 15, 12, tzinfo=timezone.utc)
+    assert P._period_start(NOW, "hour") == datetime(
+        2026, 8, 15, 12, tzinfo=timezone.utc
+    )
     # 2026-08-15 is a Saturday -> week (Mon) start is 2026-08-10
     assert P._period_start(NOW, "week") == datetime(2026, 8, 10, tzinfo=timezone.utc)
     with pytest.raises(ValueError):

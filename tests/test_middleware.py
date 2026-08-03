@@ -170,8 +170,12 @@ def test_metered_tools_exempts_free_tools(monkeypatch):
     now = datetime.now(timezone.utc)
     led.record(
         {
-            "principal": "o@x.com", "id": "prev", "month": now.strftime("%Y-%m"),
-            "ts": now.isoformat(), "cost_usd": 5.0, "status": "done",
+            "principal": "o@x.com",
+            "id": "prev",
+            "month": now.strftime("%Y-%m"),
+            "ts": now.isoformat(),
+            "cost_usd": 5.0,
+            "status": "done",
         }
     )  # already over a $1 cap
     mw = MeteringMiddleware(

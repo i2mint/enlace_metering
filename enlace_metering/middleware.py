@@ -196,8 +196,11 @@ class MeteringMiddleware(Middleware):
                     proposed = None
             decision = self.policy(
                 GateRequest(
-                    principal=email, ledger=self.ledger, now=now,
-                    proposed_cost_usd=proposed, tool=tool,
+                    principal=email,
+                    ledger=self.ledger,
+                    now=now,
+                    proposed_cost_usd=proposed,
+                    tool=tool,
                 )
             )
             if not decision.allow:

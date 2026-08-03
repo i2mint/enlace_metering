@@ -25,7 +25,9 @@ def test_record_keys_by_principal_month_id_and_overwrites():
     led = UsageLedger(store)
     key = led.record(_entry("U@X.com", "abc", cost=None, status="started"))
     assert key == "u@x.com/2026-08/abc.json"  # lowercased principal
-    led.record(_entry("U@X.com", "abc", cost=1.5, status="done"))  # same id -> overwrite
+    led.record(
+        _entry("U@X.com", "abc", cost=1.5, status="done")
+    )  # same id -> overwrite
     assert len(store) == 1
     assert store[key]["cost_usd"] == 1.5
 
@@ -35,7 +37,9 @@ def test_spend_since_sums_costs_in_window():
     led = UsageLedger(store)
     led.record(_entry("a@x.com", "1", cost=2.0, ts=NOW))
     led.record(_entry("a@x.com", "2", cost=3.0, ts=NOW - timedelta(hours=1)))
-    led.record(_entry("a@x.com", "3", cost=5.0, ts=NOW - timedelta(days=40)))  # older month
+    led.record(
+        _entry("a@x.com", "3", cost=5.0, ts=NOW - timedelta(days=40))
+    )  # older month
     led.record(_entry("b@x.com", "4", cost=99.0, ts=NOW))  # other principal
     # this calendar month (from Aug 1): entries 1 + 2 = 5.0; entry 3 (June/July) excluded
     since_month = datetime(2026, 8, 1, tzinfo=timezone.utc)
