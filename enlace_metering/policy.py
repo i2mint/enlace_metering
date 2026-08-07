@@ -187,8 +187,9 @@ def per_call_cap(usd: float) -> GatePolicy:
         proposed = request.proposed_cost_usd
         if proposed is not None and proposed > usd:
             return Decision(
-                False, f"this call's estimated ${proposed:.2f} exceeds the "
-                f"per-call cap of ${usd:.2f}"
+                False,
+                f"this call's estimated ${proposed:.2f} exceeds the "
+                f"per-call cap of ${usd:.2f}",
             )
         return Decision(True, f"within the ${usd:.2f} per-call cap")
 
@@ -211,7 +212,9 @@ def call_count_cap(max_calls: int, *, period: str = "day") -> GatePolicy:
                 False,
                 f"{period}ly call cap of {max_calls} reached ({count} this {period})",
             )
-        return Decision(True, f"{max_calls - count} of {max_calls} calls left this {period}")
+        return Decision(
+            True, f"{max_calls - count} of {max_calls} calls left this {period}"
+        )
 
     return policy
 
@@ -254,7 +257,9 @@ def per_principal(
     def policy(request: GateRequest) -> Decision:
         chosen = lowered.get(request.principal.lower(), default)
         if chosen is None:
-            return Decision(False, f"no usage policy configured for {request.principal!r}")
+            return Decision(
+                False, f"no usage policy configured for {request.principal!r}"
+            )
         return chosen(request)
 
     return policy

@@ -19,7 +19,7 @@ so ``import enlace_metering`` never requires ``fastmcp``.
 
 from __future__ import annotations
 
-from .ledger import UsageLedger, safe_principal
+from .ledger import UsageLedger, safe_key_component, safe_principal
 from .policy import (
     Decision,
     GatePolicy,
@@ -77,6 +77,7 @@ __all__ = [
     # ledger (the meter)
     "UsageLedger",
     "safe_principal",
+    "safe_key_component",
     # middleware (lazy, [mcp])
     *_LAZY.keys(),
 ]

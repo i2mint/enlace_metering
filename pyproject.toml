@@ -8,14 +8,25 @@ version = "0.0.1"
 description = "Usage tracking + credit/quota access-gating for enlace MCP connectors (strategy-pattern policies + a durable ledger)"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 keywords = ["enlace", "metering", "usage", "quota", "credits", "billing", "mcp", "rate-limit"]
 authors = [{ name = "Thor Whalen" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Monitoring",
+    "Topic :: Office/Business :: Financial :: Accounting",
+]
 # The core (policy + ledger) is dependency-free — the ledger store is any
 # MutableMapping (DI'd). Only the FastMCP middleware needs a dep, hence the [mcp] extra.
 dependencies = []
-
-[project.license]
-text = "Apache-2.0"
 
 [project.urls]
 Homepage = "https://github.com/i2mint/enlace_metering"
@@ -29,7 +40,11 @@ dev = ["pytest", "fastmcp>=2.0"]
 packages = ["enlace_metering"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# wads CI runs `pytest --doctest-modules` with NO path argument, so collection is
+# driven entirely by `testpaths`. The package dir must be listed or the package's
+# own doctests would run nowhere while CI still reported green.
+testpaths = ["enlace_metering", "tests"]
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
 
 [tool.ruff]
 line-length = 88
@@ -43,8 +58,46 @@ ignore = ["D203", "E501"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]
 
+# --------------------------------------------------------------------------------
+# wads CI config — SSOT for the reusable uv CI workflow (.github/workflows/ci.yml is
+# a 5-line stub calling i2mint/wads/.github/workflows/uv-ci.yml@master).
+# --------------------------------------------------------------------------------
 [tool.wads.ci]
 installer = "uv"
+project_name = "enlace_metering"
 
 [tool.wads.ci.install]
+# `dev` carries the test-time deps (pytest + fastmcp); fastmcp is needed because
+# `--doctest-modules` imports enlace_metering.middleware, which imports fastmcp.
 extras = "dev"
+
+[tool.wads.ci.testing]
+python_versions = ["3.10", "3.12"]
+pytest_args = ["-v", "--tb=short"]
+coverage_enabled = false
+test_on_windows = true
+
+[tool.wads.ci.build]
+sdist = true
+wheel = true
+
+[tool.wads.ci.publish]
+# NOT yet published to PyPI under this name. Publishing a brand-new name is a
+# deliberate act, not a side effect of a merge — flip to true for the first real
+# release. See the repo issue tracking this decision.
+enabled = false
+
+[tool.wads.ci.env]
+required_envvars = []
+test_envvars = []
+extra_envvars = []
+
+[tool.wads.ci.env.defaults]
+
+[tool.wads.ci.quality.ruff]
+enabled = true
+
+[tool.wads.ci.docs]
+enabled = true
+builder = "epythet"
+ignore_paths = ["tests/"]
