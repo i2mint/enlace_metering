@@ -1,0 +1,440 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>enlace_metering.policy &mdash; enlace_metering 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/toggleprompt.js?v=d7ede5d2"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            enlace_metering
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering.html">enlace_metering</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/ledger.html">enlace_metering.ledger</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/middleware.html">enlace_metering.middleware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/policy.html">enlace_metering.policy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">enlace_metering</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">enlace_metering.policy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for enlace_metering.policy</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Access-gating policies — the *enforcement* half of metering (deny before spend).</span>
+
+<span class="sd">Usage-based systems separate **enforcement** (may this call proceed?) from</span>
+<span class="sd">**billing/recording** (what did it cost?). The gate runs *before* the ledger ever</span>
+<span class="sd">sees the event: entitlement/quota checks are a distinct layer from the meter that</span>
+<span class="sd">records spend (see the package README for the research + sources). This module is</span>
+<span class="sd">that gate — and it is a **strategy**: whether to let a principal use a resource is a</span>
+<span class="sd">pure function ``GatePolicy = (GateRequest) -&gt; Decision`` that a host plugs in, with a</span>
+<span class="sd">library of parameterized constructors for the common credit-based formulas.</span>
+
+<span class="sd">Everything here is **pure + dependency-free** (no fastmcp, no storage engine): a</span>
+<span class="sd">policy reads usage through the small :class:`UsageQuery` protocol (which</span>
+<span class="sd">:class:`~enlace_metering.ledger.UsageLedger` implements) and returns a</span>
+<span class="sd">:class:`Decision`. That keeps the formulas unit-testable against a dict and reusable</span>
+<span class="sd">outside any connector.</span>
+
+<span class="sd">Progressive disclosure: default to :func:`unlimited` or a single</span>
+<span class="sd">:func:`credit_cap`; compose with :func:`require_all` / :func:`per_principal` for</span>
+<span class="sd">tiered plans (e.g. the owner unlimited, everyone else a monthly cap).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Protocol</span>
+
+
+<div class="viewcode-block" id="UsageQuery">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.UsageQuery">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UsageQuery</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The read side a policy needs: a principal&#39;s spend / call-count since a time.</span>
+
+<span class="sd">    :class:`~enlace_metering.ledger.UsageLedger` implements this; a test can pass any</span>
+<span class="sd">    object with these two methods. ``since`` is timezone-aware UTC.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">spend_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">count_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span></div>
+
+
+
+<div class="viewcode-block" id="Decision">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.Decision">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Decision</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A gate outcome. ``allow`` is the verdict; ``reason`` is a human-facing</span>
+<span class="sd">    explanation (surfaced to the caller on denial, and useful as a remaining-budget</span>
+<span class="sd">    note on approval). ``remaining_usd`` is set by cap policies when meaningful.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">allow</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">remaining_usd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>  <span class="c1"># so `if policy(req): ...` reads naturally</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow</span></div>
+
+
+
+<div class="viewcode-block" id="GateRequest">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.GateRequest">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GateRequest</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Everything a policy needs to decide one call.</span>
+
+<span class="sd">    ``ledger`` is the usage read-side (:class:`UsageQuery`); ``now`` is injected</span>
+<span class="sd">    (timezone-aware UTC) so policies are deterministic + testable; ``proposed_cost_usd``</span>
+<span class="sd">    is this call&#39;s *estimated* cost when the host can estimate it (else ``None`` — the</span>
+<span class="sd">    gate then blocks on already-accumulated usage, the &quot;you&#39;ve hit your limit&quot; model);</span>
+<span class="sd">    ``tool`` is the operation name (for logging / per-tool policies).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">ledger</span><span class="p">:</span> <span class="n">UsageQuery</span>
+    <span class="n">now</span><span class="p">:</span> <span class="n">datetime</span>
+    <span class="n">proposed_cost_usd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">tool</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+
+<span class="c1">#: A gating strategy: decide whether ``request`` may proceed. Pure — no I/O beyond</span>
+<span class="c1">#: the injected :class:`UsageQuery`. Host apps register one per connector (or per</span>
+<span class="c1">#: principal via :func:`per_principal`).</span>
+<span class="n">GatePolicy</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">GateRequest</span><span class="p">],</span> <span class="n">Decision</span><span class="p">]</span>
+
+
+<span class="n">_PERIODS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;hour&quot;</span><span class="p">,</span> <span class="s2">&quot;day&quot;</span><span class="p">,</span> <span class="s2">&quot;week&quot;</span><span class="p">,</span> <span class="s2">&quot;month&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_period_start</span><span class="p">(</span><span class="n">now</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start of the calendar ``period`` containing ``now`` (UTC).</span>
+
+<span class="sd">    ``month`` = first of the month; ``week`` = Monday; ``day`` = midnight; ``hour`` =</span>
+<span class="sd">    top of the hour. A *calendar* boundary (not a rolling window — that&#39;s</span>
+<span class="sd">    :func:`rolling_window_cap`), so a monthly cap resets on the 1st.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">period</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_PERIODS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;period must be one of </span><span class="si">{</span><span class="n">_PERIODS</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">period</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">midnight</span> <span class="o">=</span> <span class="n">now</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">&quot;hour&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">now</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">&quot;day&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">midnight</span>
+    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">&quot;week&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">midnight</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">now</span><span class="o">.</span><span class="n">weekday</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">midnight</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># month</span>
+
+
+<div class="viewcode-block" id="unlimited">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.unlimited">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">unlimited</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Always allow — the meter still records, but nothing is gated (e.g. the owner).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;no usage limit&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<div class="viewcode-block" id="credit_cap">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.credit_cap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">credit_cap</span><span class="p">(</span><span class="n">usd_per_period</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;month&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny once spend in the current calendar ``period`` reaches ``usd_per_period``.</span>
+
+<span class="sd">    The prepaid-credit / metered-cap formula: a principal gets ``usd_per_period`` of</span>
+<span class="sd">    spend per calendar period (default monthly), resetting on the boundary. When the</span>
+<span class="sd">    host supplies ``proposed_cost_usd`` the check is forward-looking (deny a call that</span>
+<span class="sd">    *would* cross the cap); otherwise it denies the next call once already at/over the</span>
+<span class="sd">    cap (&quot;you&#39;ve hit your limit&quot;).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">usd_per_period</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;usd_per_period must be &gt;= 0&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="n">since</span> <span class="o">=</span> <span class="n">_period_start</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">now</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
+        <span class="n">spent</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">ledger</span><span class="o">.</span><span class="n">spend_since</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="p">,</span> <span class="n">since</span><span class="p">)</span>
+        <span class="n">proposed</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">proposed_cost_usd</span> <span class="ow">or</span> <span class="mf">0.0</span>
+        <span class="n">remaining</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">usd_per_period</span> <span class="o">-</span> <span class="n">spent</span><span class="p">)</span>
+        <span class="c1"># Deny when the budget is exhausted (spent at/over the cap — the &quot;you&#39;ve hit</span>
+        <span class="c1"># your limit&quot; case, incl. proposed=None) OR when this call would cross it.</span>
+        <span class="k">if</span> <span class="n">spent</span> <span class="o">&gt;=</span> <span class="n">usd_per_period</span> <span class="ow">or</span> <span class="n">spent</span> <span class="o">+</span> <span class="n">proposed</span> <span class="o">&gt;</span> <span class="n">usd_per_period</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+                <span class="kc">False</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">ly credit cap of $</span><span class="si">{</span><span class="n">usd_per_period</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> reached &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(spent $</span><span class="si">{</span><span class="n">spent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+            <span class="kc">True</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;$</span><span class="si">{</span><span class="n">remaining</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> of $</span><span class="si">{</span><span class="n">usd_per_period</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> left this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<div class="viewcode-block" id="rolling_window_cap">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.rolling_window_cap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rolling_window_cap</span><span class="p">(</span><span class="n">usd</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny once spend in the trailing ``window`` reaches ``usd``.</span>
+
+<span class="sd">    A sliding window (e.g. ``$5`` per rolling 24h) rather than a calendar reset —</span>
+<span class="sd">    smoother rate control. Forward-looking when ``proposed_cost_usd`` is given.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">usd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;usd must be &gt;= 0&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="n">since</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">now</span> <span class="o">-</span> <span class="n">window</span>
+        <span class="n">spent</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">ledger</span><span class="o">.</span><span class="n">spend_since</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="p">,</span> <span class="n">since</span><span class="p">)</span>
+        <span class="n">proposed</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">proposed_cost_usd</span> <span class="ow">or</span> <span class="mf">0.0</span>
+        <span class="n">remaining</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">usd</span> <span class="o">-</span> <span class="n">spent</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">spent</span> <span class="o">&gt;=</span> <span class="n">usd</span> <span class="ow">or</span> <span class="n">spent</span> <span class="o">+</span> <span class="n">proposed</span> <span class="o">&gt;</span> <span class="n">usd</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+                <span class="kc">False</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;rolling-window cap of $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2"> reached &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(spent $</span><span class="si">{</span><span class="n">spent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> in the last </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+            <span class="kc">True</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;$</span><span class="si">{</span><span class="n">remaining</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> left in this </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2"> window&quot;</span><span class="p">,</span>
+            <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<div class="viewcode-block" id="per_call_cap">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.per_call_cap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">per_call_cap</span><span class="p">(</span><span class="n">usd</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny a single call whose *estimated* cost exceeds ``usd``.</span>
+
+<span class="sd">    Needs ``proposed_cost_usd`` (the host must estimate); a call with no estimate is</span>
+<span class="sd">    allowed (nothing to compare). Pair with a period cap via :func:`require_all` to</span>
+<span class="sd">    bound both the per-call blast radius and the cumulative spend.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">usd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;usd must be &gt;= 0&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="n">proposed</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">proposed_cost_usd</span>
+        <span class="k">if</span> <span class="n">proposed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">proposed</span> <span class="o">&gt;</span> <span class="n">usd</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+                <span class="kc">False</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;this call&#39;s estimated $</span><span class="si">{</span><span class="n">proposed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> exceeds the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;per-call cap of $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;within the $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> per-call cap&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<div class="viewcode-block" id="call_count_cap">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.call_count_cap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">call_count_cap</span><span class="p">(</span><span class="n">max_calls</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;day&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny once the principal has made ``max_calls`` in the current calendar ``period``.</span>
+
+<span class="sd">    A count-based quota (no cost model needed) — useful for free/rate-limited tools.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">max_calls</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;max_calls must be &gt;= 0&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="n">since</span> <span class="o">=</span> <span class="n">_period_start</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">now</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">ledger</span><span class="o">.</span><span class="n">count_since</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="p">,</span> <span class="n">since</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;=</span> <span class="n">max_calls</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+                <span class="kc">False</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">ly call cap of </span><span class="si">{</span><span class="n">max_calls</span><span class="si">}</span><span class="s2"> reached (</span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+            <span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">max_calls</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">count</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">max_calls</span><span class="si">}</span><span class="s2"> calls left this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<div class="viewcode-block" id="balance_gate">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.balance_gate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">balance_gate</span><span class="p">(</span><span class="n">get_balance</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny when a principal&#39;s prepaid balance can&#39;t cover the call.</span>
+
+<span class="sd">    ``get_balance(principal) -&gt; remaining_usd`` is host-supplied (a credit store).</span>
+<span class="sd">    Denies if the balance is non-positive, or (when estimable) below the call&#39;s</span>
+<span class="sd">    ``proposed_cost_usd``. This is the true prepaid-credits model — burn-down lives in</span>
+<span class="sd">    the host&#39;s balance store; this only gates.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="n">balance</span> <span class="o">=</span> <span class="n">get_balance</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="p">)</span>
+        <span class="n">need</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">proposed_cost_usd</span> <span class="ow">or</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="n">balance</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">balance</span> <span class="o">&lt;</span> <span class="n">need</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+                <span class="kc">False</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;insufficient credit: balance $</span><span class="si">{</span><span class="n">balance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;, need $</span><span class="si">{</span><span class="n">need</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">need</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="n">remaining_usd</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">balance</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;$</span><span class="si">{</span><span class="n">balance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> credit remaining&quot;</span><span class="p">,</span> <span class="n">remaining_usd</span><span class="o">=</span><span class="n">balance</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<div class="viewcode-block" id="per_principal">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.per_principal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">per_principal</span><span class="p">(</span>
+    <span class="n">policies</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">GatePolicy</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GatePolicy</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Route to a per-principal policy (tiered plans): ``{email: policy, ...}``.</span>
+
+<span class="sd">    ``default`` handles principals not in the map (e.g. owner unlimited, everyone else</span>
+<span class="sd">    a cap: ``per_principal({owner: unlimited()}, default=credit_cap(10))``). With no</span>
+<span class="sd">    ``default``, an unlisted principal is **denied** (deny-by-default).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lowered</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">policies</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="n">chosen</span> <span class="o">=</span> <span class="n">lowered</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">default</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">chosen</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
+                <span class="kc">False</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;no usage policy configured for </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">chosen</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<div class="viewcode-block" id="require_all">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.require_all">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">require_all</span><span class="p">(</span><span class="o">*</span><span class="n">policies</span><span class="p">:</span> <span class="n">GatePolicy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Allow only if every policy allows; first denial wins (AND / most-restrictive).</span>
+
+<span class="sd">    E.g. ``require_all(per_call_cap(2), credit_cap(20))`` — bound both a single call</span>
+<span class="sd">    and the monthly total. With no policies, allows (vacuous truth).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">policies</span><span class="p">:</span>
+            <span class="n">decision</span> <span class="o">=</span> <span class="n">p</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">decision</span><span class="o">.</span><span class="n">allow</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">decision</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;all policies satisfied&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">policy</span></div>
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;UsageQuery&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Decision&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GateRequest&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GatePolicy&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;unlimited&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;credit_cap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;rolling_window_cap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;per_call_cap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;call_count_cap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;balance_gate&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;per_principal&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;require_all&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

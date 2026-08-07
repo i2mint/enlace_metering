@@ -1,0 +1,260 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>enlace_metering.ledger &mdash; enlace_metering 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/toggleprompt.js?v=d7ede5d2"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            enlace_metering
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering.html">enlace_metering</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/ledger.html">enlace_metering.ledger</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/middleware.html">enlace_metering.middleware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/policy.html">enlace_metering.policy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">enlace_metering</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">enlace_metering.ledger</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for enlace_metering.ledger</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Durable usage ledger — the *recording* half of metering.</span>
+
+<span class="sd">Records one entry per metered call into an injected ``MutableMapping`` (a ``dol``</span>
+<span class="sd">file store in prod — which grows to ``s3dol`` / ``sqldol`` untouched; a plain</span>
+<span class="sd">``dict`` in tests), keyed ``{principal}/{YYYY-MM}/{id}.json`` so &quot;what did X spend</span>
+<span class="sd">this month&quot; is a cheap subtree scan. Implements</span>
+<span class="sd">:class:`enlace_metering.policy.UsageQuery` (``spend_since`` / ``count_since``) so</span>
+<span class="sd">policies gate on real accumulated usage.</span>
+
+<span class="sd">**Storage-agnostic** — any ``MutableMapping``; there is no ``dol`` dependency (the</span>
+<span class="sd">store is dependency-injected). *Every* key component is traversal-checked, so neither</span>
+<span class="sd">a hostile identity nor a hostile operation name can escape the ledger prefix.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">,</span> <span class="n">Optional</span>
+
+
+<div class="viewcode-block" id="safe_key_component">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/ledger.html#enlace_metering.safe_key_component">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">safe_key_component</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">what</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;key&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A traversal-safe key component: reject empty, separators, ``.``/``..``, NUL.</span>
+
+<span class="sd">    The ledger key is ``{principal}/{month}/{id}.json``; every component is</span>
+<span class="sd">    caller-influenced (the ``id`` embeds the tool name), so every component is</span>
+<span class="sd">    checked. ``what`` names the component in the error message.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="n">value</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span> <span class="ow">or</span> <span class="s2">&quot;/&quot;</span> <span class="ow">in</span> <span class="n">v</span> <span class="ow">or</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">v</span> <span class="ow">or</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot;..&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;</span><span class="se">\x00</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsafe </span><span class="si">{</span><span class="n">what</span><span class="si">}</span><span class="s2"> key: </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">v</span></div>
+
+
+
+<div class="viewcode-block" id="safe_principal">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/ledger.html#enlace_metering.safe_principal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">safe_principal</span><span class="p">(</span><span class="n">principal</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A traversal-safe, lowercased key component for a principal (email / ``sub``).</span>
+
+<span class="sd">    Rejects empty, path-separator, ``.``/``..``, and NUL so a hostile identity can&#39;t</span>
+<span class="sd">    escape its ledger prefix. Identity is case-insensitive (enlace_auth mints</span>
+<span class="sd">    ``sub = email``), so this lowercases too.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">safe_key_component</span><span class="p">((</span><span class="n">principal</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;principal&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_as_utc</span><span class="p">(</span><span class="n">dt</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Make ``dt`` timezone-aware, treating a naive value as UTC.</span>
+
+<span class="sd">    The ledger&#39;s timestamps are UTC by construction (the middleware writes</span>
+<span class="sd">    ``datetime.now(timezone.utc).isoformat()``), but an entry written by another</span>
+<span class="sd">    producer — or a ``since`` passed by a host — may be naive. Normalizing here keeps</span>
+<span class="sd">    the queries total: comparing a naive to an aware datetime raises ``TypeError``,</span>
+<span class="sd">    which in a fail-closed middleware would turn one badly-stamped ledger row into a</span>
+<span class="sd">    hard failure of every subsequent gated call.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">dt</span> <span class="k">if</span> <span class="n">dt</span><span class="o">.</span><span class="n">tzinfo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">dt</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_entry_ts</span><span class="p">(</span><span class="n">entry</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse an entry&#39;s ISO ``ts`` to an aware datetime, or ``None`` if absent/bad.</span>
+
+<span class="sd">    ``None`` is treated as &quot;include&quot; by the queries (conservative — a call with an</span>
+<span class="sd">    unparseable timestamp still counts toward usage). A parsed-but-naive timestamp is</span>
+<span class="sd">    read as UTC (see :func:`_as_utc`).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ts&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_as_utc</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="n">raw</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="UsageLedger">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/ledger.html#enlace_metering.UsageLedger">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">UsageLedger</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Append/overwrite usage ledger over an injected ``MutableMapping``.</span>
+
+<span class="sd">    ``record`` writes one entry keyed ``{principal}/{month}/{id}.json``; the metering</span>
+<span class="sd">    middleware calls it twice per call (write-ahead ``started`` then the ``done`` /</span>
+<span class="sd">    ``error`` update) under the **same** ``id``, so the store ends with the final</span>
+<span class="sd">    entry (its ``cost_usd`` is what ``spend_since`` sums). Entries need at least</span>
+<span class="sd">    ``principal``, ``month`` (``YYYY-MM``), ``id``, and — for costed calls — ``ts``</span>
+<span class="sd">    (ISO) and ``cost_usd``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">store</span><span class="p">:</span> <span class="n">MutableMapping</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">principal</span> <span class="o">=</span> <span class="n">safe_principal</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;principal&quot;</span><span class="p">])</span>
+        <span class="n">month</span> <span class="o">=</span> <span class="n">safe_key_component</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;month&quot;</span><span class="p">]),</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;month&quot;</span><span class="p">)</span>
+        <span class="n">entry_id</span> <span class="o">=</span> <span class="n">safe_key_component</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]),</span> <span class="n">what</span><span class="o">=</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">principal</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">month</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">entry_id</span><span class="si">}</span><span class="s2">.json&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+        <span class="k">return</span> <span class="n">key</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_entries_for</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">since_month</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Yield a principal&#39;s entries, pruning by month (``YYYY-MM`` string order) so</span>
+<span class="sd">        a query scans only the relevant months, not the whole store.&quot;&quot;&quot;</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="n">safe_principal</span><span class="p">(</span><span class="n">principal</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">since_month</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">parts</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">since_month</span><span class="p">:</span>
+                    <span class="k">continue</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">store</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+<div class="viewcode-block" id="UsageLedger.spend_since">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/ledger.html#enlace_metering.UsageLedger.spend_since">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spend_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Total ``cost_usd`` across the principal&#39;s entries at/after ``since``.&quot;&quot;&quot;</span>
+        <span class="n">since</span> <span class="o">=</span> <span class="n">_as_utc</span><span class="p">(</span><span class="n">since</span><span class="p">)</span>
+        <span class="n">since_month</span> <span class="o">=</span> <span class="n">since</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m&quot;</span><span class="p">)</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entries_for</span><span class="p">(</span><span class="n">principal</span><span class="p">,</span> <span class="n">since_month</span><span class="o">=</span><span class="n">since_month</span><span class="p">):</span>
+            <span class="n">ts</span> <span class="o">=</span> <span class="n">_entry_ts</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ts</span> <span class="o">&gt;=</span> <span class="n">since</span><span class="p">:</span>
+                <span class="n">cost</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cost_usd&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cost</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                    <span class="n">total</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">cost</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">total</span></div>
+
+
+<div class="viewcode-block" id="UsageLedger.count_since">
+<a class="viewcode-back" href="../../module_docs/enlace_metering/ledger.html#enlace_metering.UsageLedger.count_since">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">count_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of the principal&#39;s entries at/after ``since``.&quot;&quot;&quot;</span>
+        <span class="n">since</span> <span class="o">=</span> <span class="n">_as_utc</span><span class="p">(</span><span class="n">since</span><span class="p">)</span>
+        <span class="n">since_month</span> <span class="o">=</span> <span class="n">since</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m&quot;</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entries_for</span><span class="p">(</span><span class="n">principal</span><span class="p">,</span> <span class="n">since_month</span><span class="o">=</span><span class="n">since_month</span><span class="p">):</span>
+            <span class="n">ts</span> <span class="o">=</span> <span class="n">_entry_ts</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ts</span> <span class="o">&gt;=</span> <span class="n">since</span><span class="p">:</span>
+                <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">n</span></div>
+</div>
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;UsageLedger&quot;</span><span class="p">,</span> <span class="s2">&quot;safe_principal&quot;</span><span class="p">,</span> <span class="s2">&quot;safe_key_component&quot;</span><span class="p">]</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

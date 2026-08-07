@@ -1,0 +1,290 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>enlace_metering &mdash; enlace_metering 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=4ae1632d" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/toggleprompt.js?v=d7ede5d2"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="enlace_metering.ledger" href="enlace_metering/ledger.html" />
+    <link rel="prev" title="Welcome to enlace_metering’s documentation!" href="../index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            enlace_metering
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">enlace_metering</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.Decision"><code class="docutils literal notranslate"><span class="pre">Decision</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.GateRequest"><code class="docutils literal notranslate"><span class="pre">GateRequest</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.UsageLedger"><code class="docutils literal notranslate"><span class="pre">UsageLedger</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#enlace_metering.UsageLedger.count_since"><code class="docutils literal notranslate"><span class="pre">UsageLedger.count_since()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#enlace_metering.UsageLedger.spend_since"><code class="docutils literal notranslate"><span class="pre">UsageLedger.spend_since()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.UsageQuery"><code class="docutils literal notranslate"><span class="pre">UsageQuery</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.balance_gate"><code class="docutils literal notranslate"><span class="pre">balance_gate()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.call_count_cap"><code class="docutils literal notranslate"><span class="pre">call_count_cap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.credit_cap"><code class="docutils literal notranslate"><span class="pre">credit_cap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.per_call_cap"><code class="docutils literal notranslate"><span class="pre">per_call_cap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.per_principal"><code class="docutils literal notranslate"><span class="pre">per_principal()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.require_all"><code class="docutils literal notranslate"><span class="pre">require_all()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.rolling_window_cap"><code class="docutils literal notranslate"><span class="pre">rolling_window_cap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.safe_key_component"><code class="docutils literal notranslate"><span class="pre">safe_key_component()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.safe_principal"><code class="docutils literal notranslate"><span class="pre">safe_principal()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enlace_metering.unlimited"><code class="docutils literal notranslate"><span class="pre">unlimited()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="enlace_metering/ledger.html">enlace_metering.ledger</a></li>
+<li class="toctree-l1"><a class="reference internal" href="enlace_metering/middleware.html">enlace_metering.middleware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="enlace_metering/policy.html">enlace_metering.policy</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">enlace_metering</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">enlace_metering</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/module_docs/enlace_metering.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-enlace_metering">
+<span id="enlace-metering"></span><h1>enlace_metering<a class="headerlink" href="#module-enlace_metering" title="Link to this heading"></a></h1>
+<p>enlace_metering — usage tracking + credit/quota access-gating for enlace connectors.</p>
+<p>The enlace platform’s “usage &amp; access-policy” layer — the sibling of <code class="docutils literal notranslate"><span class="pre">enlace_auth</span></code>
+(identity) and <code class="docutils literal notranslate"><span class="pre">enlace_connector</span></code> (deploy). Three cleanly separated concerns (the
+research + sources are in the README):</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="enlace_metering/policy.html#module-enlace_metering.policy" title="enlace_metering.policy"><code class="xref py py-mod docutils literal notranslate"><span class="pre">policy</span></code></a> — the <strong>gate</strong> (strategy): pure <code class="docutils literal notranslate"><span class="pre">GatePolicy</span></code> formulas
+(<a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.unlimited" title="enlace_metering.policy.unlimited"><code class="xref py py-func docutils literal notranslate"><span class="pre">unlimited()</span></code></a>, <a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.credit_cap" title="enlace_metering.policy.credit_cap"><code class="xref py py-func docutils literal notranslate"><span class="pre">credit_cap()</span></code></a>,
+<a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.rolling_window_cap" title="enlace_metering.policy.rolling_window_cap"><code class="xref py py-func docutils literal notranslate"><span class="pre">rolling_window_cap()</span></code></a>, …) that decide allow/deny <em>before</em>
+a call runs. Enforcement is a distinct layer from recording.</p></li>
+<li><p><a class="reference internal" href="enlace_metering/ledger.html#module-enlace_metering.ledger" title="enlace_metering.ledger"><code class="xref py py-mod docutils literal notranslate"><span class="pre">ledger</span></code></a> — the <strong>meter</strong> (record): <a class="reference internal" href="enlace_metering/ledger.html#enlace_metering.ledger.UsageLedger" title="enlace_metering.ledger.UsageLedger"><code class="xref py py-class docutils literal notranslate"><span class="pre">UsageLedger</span></code></a>
+over any <code class="docutils literal notranslate"><span class="pre">MutableMapping</span></code> (a <code class="docutils literal notranslate"><span class="pre">dol</span></code> store in prod → grows to blob storage untouched).</p></li>
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">middleware</span></code> — the FastMCP glue (needs the <code class="docutils literal notranslate"><span class="pre">[mcp]</span></code> extra) tying
+identity → gate → write-ahead ledger, fail-closed.</p></li>
+</ul>
+<p>The core (policy + ledger) is <strong>dependency-free</strong>; the middleware is imported lazily,
+so <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">enlace_metering</span></code> never requires <code class="docutils literal notranslate"><span class="pre">fastmcp</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="enlace_metering.Decision">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">Decision</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">allow</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remaining_usd</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/enlace_metering/policy.html#Decision"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.Decision" title="Link to this definition"></a></dt>
+<dd><p>A gate outcome. <code class="docutils literal notranslate"><span class="pre">allow</span></code> is the verdict; <code class="docutils literal notranslate"><span class="pre">reason</span></code> is a human-facing
+explanation (surfaced to the caller on denial, and useful as a remaining-budget
+note on approval). <code class="docutils literal notranslate"><span class="pre">remaining_usd</span></code> is set by cap policies when meaningful.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enlace_metering.GateRequest">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">GateRequest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">principal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ledger</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.UsageQuery" title="enlace_metering.policy.UsageQuery"><span class="pre">UsageQuery</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">now</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">datetime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">proposed_cost_usd</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tool</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/enlace_metering/policy.html#GateRequest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.GateRequest" title="Link to this definition"></a></dt>
+<dd><p>Everything a policy needs to decide one call.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ledger</span></code> is the usage read-side (<a class="reference internal" href="#enlace_metering.UsageQuery" title="enlace_metering.UsageQuery"><code class="xref py py-class docutils literal notranslate"><span class="pre">UsageQuery</span></code></a>); <code class="docutils literal notranslate"><span class="pre">now</span></code> is injected
+(timezone-aware UTC) so policies are deterministic + testable; <code class="docutils literal notranslate"><span class="pre">proposed_cost_usd</span></code>
+is this call’s <em>estimated</em> cost when the host can estimate it (else <code class="docutils literal notranslate"><span class="pre">None</span></code> — the
+gate then blocks on already-accumulated usage, the “you’ve hit your limit” model);
+<code class="docutils literal notranslate"><span class="pre">tool</span></code> is the operation name (for logging / per-tool policies).</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enlace_metering.UsageLedger">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">UsageLedger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MutableMapping</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/enlace_metering/ledger.html#UsageLedger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.UsageLedger" title="Link to this definition"></a></dt>
+<dd><p>Append/overwrite usage ledger over an injected <code class="docutils literal notranslate"><span class="pre">MutableMapping</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">record</span></code> writes one entry keyed <code class="docutils literal notranslate"><span class="pre">{principal}/{month}/{id}.json</span></code>; the metering
+middleware calls it twice per call (write-ahead <code class="docutils literal notranslate"><span class="pre">started</span></code> then the <code class="docutils literal notranslate"><span class="pre">done</span></code> /
+<code class="docutils literal notranslate"><span class="pre">error</span></code> update) under the <strong>same</strong> <code class="docutils literal notranslate"><span class="pre">id</span></code>, so the store ends with the final
+entry (its <code class="docutils literal notranslate"><span class="pre">cost_usd</span></code> is what <code class="docutils literal notranslate"><span class="pre">spend_since</span></code> sums). Entries need at least
+<code class="docutils literal notranslate"><span class="pre">principal</span></code>, <code class="docutils literal notranslate"><span class="pre">month</span></code> (<code class="docutils literal notranslate"><span class="pre">YYYY-MM</span></code>), <code class="docutils literal notranslate"><span class="pre">id</span></code>, and — for costed calls — <code class="docutils literal notranslate"><span class="pre">ts</span></code>
+(ISO) and <code class="docutils literal notranslate"><span class="pre">cost_usd</span></code>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="enlace_metering.UsageLedger.count_since">
+<span class="sig-name descname"><span class="pre">count_since</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">principal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">since</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">datetime</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="../_modules/enlace_metering/ledger.html#UsageLedger.count_since"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.UsageLedger.count_since" title="Link to this definition"></a></dt>
+<dd><p>Number of the principal’s entries at/after <code class="docutils literal notranslate"><span class="pre">since</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="enlace_metering.UsageLedger.spend_since">
+<span class="sig-name descname"><span class="pre">spend_since</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">principal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">since</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">datetime</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="../_modules/enlace_metering/ledger.html#UsageLedger.spend_since"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.UsageLedger.spend_since" title="Link to this definition"></a></dt>
+<dd><p>Total <code class="docutils literal notranslate"><span class="pre">cost_usd</span></code> across the principal’s entries at/after <code class="docutils literal notranslate"><span class="pre">since</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="enlace_metering.UsageQuery">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">UsageQuery</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/enlace_metering/policy.html#UsageQuery"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.UsageQuery" title="Link to this definition"></a></dt>
+<dd><p>The read side a policy needs: a principal’s spend / call-count since a time.</p>
+<p><a class="reference internal" href="enlace_metering/ledger.html#enlace_metering.ledger.UsageLedger" title="enlace_metering.ledger.UsageLedger"><code class="xref py py-class docutils literal notranslate"><span class="pre">UsageLedger</span></code></a> implements this; a test can pass any
+object with these two methods. <code class="docutils literal notranslate"><span class="pre">since</span></code> is timezone-aware UTC.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.balance_gate">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">balance_gate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">get_balance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#balance_gate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.balance_gate" title="Link to this definition"></a></dt>
+<dd><p>Deny when a principal’s prepaid balance can’t cover the call.</p>
+<p><code class="docutils literal notranslate"><span class="pre">get_balance(principal)</span> <span class="pre">-&gt;</span> <span class="pre">remaining_usd</span></code> is host-supplied (a credit store).
+Denies if the balance is non-positive, or (when estimable) below the call’s
+<code class="docutils literal notranslate"><span class="pre">proposed_cost_usd</span></code>. This is the true prepaid-credits model — burn-down lives in
+the host’s balance store; this only gates.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.call_count_cap">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">call_count_cap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_calls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'day'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#call_count_cap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.call_count_cap" title="Link to this definition"></a></dt>
+<dd><p>Deny once the principal has made <code class="docutils literal notranslate"><span class="pre">max_calls</span></code> in the current calendar <code class="docutils literal notranslate"><span class="pre">period</span></code>.</p>
+<p>A count-based quota (no cost model needed) — useful for free/rate-limited tools.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.credit_cap">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">credit_cap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">usd_per_period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'month'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#credit_cap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.credit_cap" title="Link to this definition"></a></dt>
+<dd><p>Deny once spend in the current calendar <code class="docutils literal notranslate"><span class="pre">period</span></code> reaches <code class="docutils literal notranslate"><span class="pre">usd_per_period</span></code>.</p>
+<p>The prepaid-credit / metered-cap formula: a principal gets <code class="docutils literal notranslate"><span class="pre">usd_per_period</span></code> of
+spend per calendar period (default monthly), resetting on the boundary. When the
+host supplies <code class="docutils literal notranslate"><span class="pre">proposed_cost_usd</span></code> the check is forward-looking (deny a call that
+<em>would</em> cross the cap); otherwise it denies the next call once already at/over the
+cap (“you’ve hit your limit”).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.per_call_cap">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">per_call_cap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">usd</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#per_call_cap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.per_call_cap" title="Link to this definition"></a></dt>
+<dd><p>Deny a single call whose <em>estimated</em> cost exceeds <code class="docutils literal notranslate"><span class="pre">usd</span></code>.</p>
+<p>Needs <code class="docutils literal notranslate"><span class="pre">proposed_cost_usd</span></code> (the host must estimate); a call with no estimate is
+allowed (nothing to compare). Pair with a period cap via <a class="reference internal" href="#enlace_metering.require_all" title="enlace_metering.require_all"><code class="xref py py-func docutils literal notranslate"><span class="pre">require_all()</span></code></a> to
+bound both the per-call blast radius and the cumulative spend.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.per_principal">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">per_principal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">policies</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mapping</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#per_principal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.per_principal" title="Link to this definition"></a></dt>
+<dd><p>Route to a per-principal policy (tiered plans): <code class="docutils literal notranslate"><span class="pre">{email:</span> <span class="pre">policy,</span> <span class="pre">...}</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">default</span></code> handles principals not in the map (e.g. owner unlimited, everyone else
+a cap: <code class="docutils literal notranslate"><span class="pre">per_principal({owner:</span> <span class="pre">unlimited()},</span> <span class="pre">default=credit_cap(10))</span></code>). With no
+<code class="docutils literal notranslate"><span class="pre">default</span></code>, an unlisted principal is <strong>denied</strong> (deny-by-default).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.require_all">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">require_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">policies</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#require_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.require_all" title="Link to this definition"></a></dt>
+<dd><p>Allow only if every policy allows; first denial wins (AND / most-restrictive).</p>
+<p>E.g. <code class="docutils literal notranslate"><span class="pre">require_all(per_call_cap(2),</span> <span class="pre">credit_cap(20))</span></code> — bound both a single call
+and the monthly total. With no policies, allows (vacuous truth).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.rolling_window_cap">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">rolling_window_cap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">usd</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">timedelta</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#rolling_window_cap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.rolling_window_cap" title="Link to this definition"></a></dt>
+<dd><p>Deny once spend in the trailing <code class="docutils literal notranslate"><span class="pre">window</span></code> reaches <code class="docutils literal notranslate"><span class="pre">usd</span></code>.</p>
+<p>A sliding window (e.g. <code class="docutils literal notranslate"><span class="pre">$5</span></code> per rolling 24h) rather than a calendar reset —
+smoother rate control. Forward-looking when <code class="docutils literal notranslate"><span class="pre">proposed_cost_usd</span></code> is given.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.safe_key_component">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">safe_key_component</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">what</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'key'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="../_modules/enlace_metering/ledger.html#safe_key_component"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.safe_key_component" title="Link to this definition"></a></dt>
+<dd><p>A traversal-safe key component: reject empty, separators, <code class="docutils literal notranslate"><span class="pre">.</span></code>/<code class="docutils literal notranslate"><span class="pre">..</span></code>, NUL.</p>
+<p>The ledger key is <code class="docutils literal notranslate"><span class="pre">{principal}/{month}/{id}.json</span></code>; every component is
+caller-influenced (the <code class="docutils literal notranslate"><span class="pre">id</span></code> embeds the tool name), so every component is
+checked. <code class="docutils literal notranslate"><span class="pre">what</span></code> names the component in the error message.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.safe_principal">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">safe_principal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">principal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="../_modules/enlace_metering/ledger.html#safe_principal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.safe_principal" title="Link to this definition"></a></dt>
+<dd><p>A traversal-safe, lowercased key component for a principal (email / <code class="docutils literal notranslate"><span class="pre">sub</span></code>).</p>
+<p>Rejects empty, path-separator, <code class="docutils literal notranslate"><span class="pre">.</span></code>/<code class="docutils literal notranslate"><span class="pre">..</span></code>, and NUL so a hostile identity can’t
+escape its ledger prefix. Identity is case-insensitive (enlace_auth mints
+<code class="docutils literal notranslate"><span class="pre">sub</span> <span class="pre">=</span> <span class="pre">email</span></code>), so this lowercases too.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="enlace_metering.unlimited">
+<span class="sig-prename descclassname"><span class="pre">enlace_metering.</span></span><span class="sig-name descname"><span class="pre">unlimited</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.GateRequest" title="enlace_metering.policy.GateRequest"><span class="pre">GateRequest</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="enlace_metering/policy.html#enlace_metering.policy.Decision" title="enlace_metering.policy.Decision"><span class="pre">Decision</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/enlace_metering/policy.html#unlimited"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#enlace_metering.unlimited" title="Link to this definition"></a></dt>
+<dd><p>Always allow — the meter still records, but nothing is gated (e.g. the owner).</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../index.html" class="btn btn-neutral float-left" title="Welcome to enlace_metering’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="enlace_metering/ledger.html" class="btn btn-neutral float-right" title="enlace_metering.ledger" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
