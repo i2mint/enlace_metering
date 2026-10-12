@@ -46,6 +46,7 @@ _LAZY = {
     "Redactor": "enlace_metering.middleware",
     "request_secret_redactor": "enlace_metering.middleware",
     "redact_request_secrets": "enlace_metering.middleware",
+    "SECRET_HEADER_PATTERN": "enlace_metering.middleware",
 }
 
 

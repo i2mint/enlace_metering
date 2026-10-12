@@ -141,12 +141,40 @@ redact_request_secrets: Redactor = request_secret_redactor()
 
 
 def _redact_safely(redact: Redactor, text: str) -> str:
-    """``redact(text)``, or :data:`REDACTION_FAILED` if the redactor raises."""
+    """``redact(text)``, or :data:`REDACTION_FAILED` if the redactor fails.
+
+    A redactor that raises or returns a non-string has failed: the text is
+    withheld rather than persisted or re-raised unredacted.
+    """
     try:
-        return redact(text)
+        clean = redact(text)
     except Exception:  # noqa: BLE001 — never persist or re-raise unredacted text
+        clean = None
+    if not isinstance(clean, str):
         _logger.warning("enlace_metering: redactor failed; error text withheld")
         return REDACTION_FAILED
+    return clean
+
+
+def _renderings(exc: BaseException):
+    """Every text ``exc`` can render: str, repr and notes, down its whole chain.
+
+    A traceback printer walks ``__cause__``/``__context__`` and prints notes, so a
+    secret anywhere in there escapes with the exception even when its own message
+    is clean (``ToolError("Error calling tool") from <dirty>`` under fastmcp's
+    ``mask_error_details``).
+    """
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        for render in (str, repr):
+            try:
+                yield render(exc)
+            except Exception:  # noqa: BLE001 — an unrenderable link renders nothing
+                pass
+        for note in getattr(exc, "__notes__", None) or ():
+            yield str(note)
+        exc = exc.__cause__ or exc.__context__
 
 
 def _scrubbed_exception(
@@ -160,16 +188,24 @@ def _scrubbed_exception(
     cause/context chain (the caller raises it outside the ``except``), since the
     original — and whatever it chained — is exactly what must not escape.
     """
-    text, rep = str(exc), repr(exc)
-    clean = _redact_safely(redact, text)
-    if clean == text and _redact_safely(redact, rep) == rep:
+    if all(_redact_safely(redact, t) == t for t in _renderings(exc)):
         return None
+    try:
+        text = str(exc)
+    except Exception:  # noqa: BLE001
+        text = type(exc).__name__
+    clean = _redact_safely(redact, text)
     try:
         new = type(exc)(clean)
         if str(new) != clean:
             raise TypeError("rebuilt exception renders differently")
     except Exception:  # noqa: BLE001 — typed fallback
         new = ToolError(clean)
+    if hasattr(exc, "log_level"):  # fastmcp's ToolError carries its own log level
+        try:
+            new.log_level = exc.log_level
+        except Exception:  # noqa: BLE001 — cosmetic
+            pass
     notes = getattr(exc, "__notes__", None)
     if notes:
         new.__notes__ = [_redact_safely(redact, str(n)) for n in notes]
@@ -388,7 +424,11 @@ class MeteringMiddleware(Middleware):
             entry["status"] = "error"
             # The row is persistent and a provider may quote the caller's key back in
             # its error — redact while the request (and so the key) is still in flight.
-            entry["error"] = _redact_safely(self.redact, repr(exc))
+            try:
+                rendered = repr(exc)
+            except Exception:  # noqa: BLE001 — a broken __repr__ must not chain exc
+                rendered = type(exc).__name__
+            entry["error"] = _redact_safely(self.redact, rendered)
             entry["elapsed_s"] = (time.time_ns() - t0) / 1e9
             scrubbed = _scrubbed_exception(exc, self.redact)
             if scrubbed is None:

@@ -371,3 +371,102 @@ def test_end_to_end_through_fastmcp(monkeypatch):
     assert _KEY not in str(result.content) and "<redacted>" in str(result.content)
     (entry,) = store.values()
     assert _KEY not in entry["error"]
+
+
+def test_dirty_cause_or_note_is_not_reraised(monkeypatch):
+    # fastmcp's mask_error_details shape: a clean message whose __cause__ quotes the
+    # key. A traceback printer would print the chain, so it must not escape.
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {"X-Fal-Key": _KEY})
+
+    async def _masked(ctx):
+        try:
+            raise RuntimeError(f"401 invalid key {_KEY}")
+        except RuntimeError as dirty:
+            raise ToolError("Error calling tool 'synthesize'") from dirty
+
+    async def _noted(ctx):
+        err = RuntimeError("upstream failed")
+        err.add_note(f"key was {_KEY}")
+        raise err
+
+    for call in (_masked, _noted):
+        entry, raised = _failing_call({}, call)
+        chain = [raised, raised.__cause__, raised.__context__]
+        assert not any(_KEY in repr(e) for e in chain if e is not None)
+        assert not any(_KEY in n for n in getattr(raised, "__notes__", []))
+
+
+def test_rebuilt_tool_error_keeps_its_log_level(monkeypatch):
+    import logging
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {"X-Fal-Key": _KEY})
+
+    async def _call(ctx):
+        raise ToolError(f"bad key {_KEY}", log_level=logging.WARNING)
+
+    entry, raised = _failing_call({}, _call)
+    assert _KEY not in str(raised) and raised.log_level == logging.WARNING
+
+
+def test_redactor_returning_non_text_withholds(monkeypatch):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, raised = _failing_call({}, _provider_401(), redact=lambda s: None)
+    assert entry["error"] == mw_mod.REDACTION_FAILED
+    assert _KEY not in str(raised)
+
+
+def test_default_redactor_over_real_http(monkeypatch):
+    # The production path end to end: a real streamable-HTTP request carrying the
+    # caller's key as a header, the DEFAULT redactor (no fakes for header reading).
+    import socket
+    import threading
+    import time
+
+    uvicorn = pytest.importorskip("uvicorn")
+    from fastmcp import Client, FastMCP
+    from fastmcp.client.transports import StreamableHttpTransport
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    store = {}
+    server = FastMCP("t")
+    server.add_middleware(MeteringMiddleware(UsageLedger(store), allowed={"o@x.com"}))
+
+    @server.tool
+    def synthesize(text: str) -> str:
+        raise RuntimeError(f"ElevenLabs 401: invalid api key {_KEY}")
+
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    http = uvicorn.Server(
+        uvicorn.Config(
+            server.http_app(), host="127.0.0.1", port=port, log_level="error"
+        )
+    )
+    thread = threading.Thread(target=http.run, daemon=True)
+    thread.start()
+    deadline = time.time() + 10
+    while not http.started and time.time() < deadline:
+        time.sleep(0.05)
+
+    async def _go():
+        transport = StreamableHttpTransport(
+            f"http://127.0.0.1:{port}/mcp", headers={"X-Elevenlabs-Key": _KEY}
+        )
+        async with Client(transport) as client:
+            return await client.call_tool(
+                "synthesize", {"text": "hi"}, raise_on_error=False
+            )
+
+    try:
+        result = _run(_go())
+    finally:
+        http.should_exit = True
+        thread.join(timeout=10)
+    assert result.is_error and _KEY not in str(result.content)
+    (entry,) = store.values()
+    assert _KEY not in entry["error"]
+    assert "<redacted:x-elevenlabs-key>" in entry["error"]
