@@ -219,3 +219,254 @@ def test_hostile_tool_name_cannot_escape_the_ledger_prefix(monkeypatch):
 def test_current_email_requires_context():
     with pytest.raises(ToolError):
         mw_mod.current_email()
+
+
+# --- caller secrets never reach the ledger or the re-raised error (tw_platform#183) ---
+
+_KEY = "sk_live_0123456789abcdef"
+
+
+def _in_flight_headers(monkeypatch, headers):
+    """Make the default redactor see ``headers`` as the in-flight request's."""
+    import fastmcp.server.dependencies as deps
+
+    def _get(include_all=False, include=None):
+        return {k.lower(): v for k, v in headers.items()}
+
+    monkeypatch.setattr(deps, "get_http_headers", _get)
+
+
+def _provider_401(exc_type=ToolError):
+    async def _call(ctx):
+        raise exc_type(f"ElevenLabs 401: invalid api key {_KEY}")
+
+    return _call
+
+
+def _failing_call(store, call_next, **mw_kwargs):
+    mw = MeteringMiddleware(
+        UsageLedger(store), policy=unlimited(), allowed={"o@x.com"}, **mw_kwargs
+    )
+    with pytest.raises(Exception) as info:
+        _run(mw.on_call_tool(_Ctx("synthesize"), call_next))
+    (entry,) = store.values()
+    return entry, info.value
+
+
+@pytest.mark.parametrize("header", ["X-Elevenlabs-Key", "X-Fal-Key", "X-Api-Key"])
+def test_caller_key_redacted_from_ledger_and_reraise(monkeypatch, header):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {header: _KEY, "X-Request-Id": "abc"})
+    store = {}
+    entry, raised = _failing_call(store, _provider_401())
+
+    assert entry["status"] == "error"
+    assert _KEY not in entry["error"]
+    assert f"<redacted:{header.lower()}>" in entry["error"]
+    assert _KEY not in str(store)  # nowhere in the persisted row
+    # The re-raised error (what the model sees) is clean, keeps its type, and does
+    # not chain the dirty original.
+    assert isinstance(raised, ToolError)
+    assert _KEY not in str(raised) and _KEY not in repr(raised)
+    assert raised.__context__ is None and raised.__cause__ is None
+
+
+def test_bearer_token_redacted(monkeypatch):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {"Authorization": f"Bearer {_KEY}"})
+    entry, raised = _failing_call({}, _provider_401())
+    assert _KEY not in entry["error"] and _KEY not in str(raised)
+
+
+def test_untyped_rebuild_falls_back_to_tool_error(monkeypatch):
+    class _Picky(Exception):
+        def __init__(self, status, detail):
+            super().__init__(status, detail)
+
+    async def _call(ctx):
+        raise _Picky(401, f"bad key {_KEY}")
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {"X-Fal-Key": _KEY})
+    entry, raised = _failing_call({}, _call)
+    assert _KEY not in entry["error"]
+    assert isinstance(raised, ToolError) and _KEY not in str(raised)
+
+
+def test_clean_error_reraised_unchanged(monkeypatch):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {"X-Fal-Key": _KEY})
+    original = RuntimeError("upstream timeout")
+
+    async def _call(ctx):
+        raise original
+
+    entry, raised = _failing_call({}, _call)
+    assert raised is original  # nothing to scrub: the very same object
+    assert entry["error"] == repr(original)
+
+
+def test_short_and_non_secret_headers_left_alone(monkeypatch):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    # a non-credential header, and a credential-named one too short to be a key
+    _in_flight_headers(monkeypatch, {"X-Request-Id": "upstream", "X-Fal-Key": "on"})
+
+    async def _call(ctx):
+        raise RuntimeError("upstream said on")
+
+    entry, raised = _failing_call({}, _call)
+    assert entry["error"] == repr(RuntimeError("upstream said on"))
+
+
+def test_custom_redactor_and_failing_redactor_fail_closed(monkeypatch):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, raised = _failing_call(
+        {}, _provider_401(), redact=lambda s: s.replace(_KEY, "<mine>")
+    )
+    assert "<mine>" in entry["error"] and "<mine>" in str(raised)
+
+    def _broken(text):
+        raise RuntimeError("redactor bug")
+
+    entry, raised = _failing_call({}, _provider_401(), redact=_broken)
+    assert entry["error"] == mw_mod.REDACTION_FAILED
+    assert _KEY not in str(raised) and _KEY not in repr(raised)
+
+
+def test_no_request_in_flight_is_a_noop(monkeypatch):
+    # stdio / no HTTP request: get_http_headers returns {}, nothing to redact.
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, raised = _failing_call({}, _provider_401())
+    assert _KEY in entry["error"]  # no header carried it, so it is not a caller secret
+
+
+def test_end_to_end_through_fastmcp(monkeypatch):
+    # The real server path: fastmcp wraps a tool's exception before the middleware
+    # sees it; what the client receives and what the ledger holds must both be clean.
+    from fastmcp import Client, FastMCP
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    store = {}
+    server = FastMCP("t")
+    server.add_middleware(
+        MeteringMiddleware(
+            UsageLedger(store),
+            allowed={"o@x.com"},
+            redact=lambda s: s.replace(_KEY, "<redacted>"),
+        )
+    )
+
+    @server.tool
+    def synthesize(text: str) -> str:
+        raise ToolError(f"ElevenLabs 401: invalid api key {_KEY}")
+
+    async def _go():
+        async with Client(server) as client:
+            return await client.call_tool(
+                "synthesize", {"text": "hi"}, raise_on_error=False
+            )
+
+    result = _run(_go())
+    assert result.is_error
+    assert _KEY not in str(result.content) and "<redacted>" in str(result.content)
+    (entry,) = store.values()
+    assert _KEY not in entry["error"]
+
+
+def test_dirty_cause_or_note_is_not_reraised(monkeypatch):
+    # fastmcp's mask_error_details shape: a clean message whose __cause__ quotes the
+    # key. A traceback printer would print the chain, so it must not escape.
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {"X-Fal-Key": _KEY})
+
+    async def _masked(ctx):
+        try:
+            raise RuntimeError(f"401 invalid key {_KEY}")
+        except RuntimeError as dirty:
+            raise ToolError("Error calling tool 'synthesize'") from dirty
+
+    async def _noted(ctx):
+        err = RuntimeError("upstream failed")
+        err.add_note(f"key was {_KEY}")
+        raise err
+
+    for call in (_masked, _noted):
+        entry, raised = _failing_call({}, call)
+        chain = [raised, raised.__cause__, raised.__context__]
+        assert not any(_KEY in repr(e) for e in chain if e is not None)
+        assert not any(_KEY in n for n in getattr(raised, "__notes__", []))
+
+
+def test_rebuilt_tool_error_keeps_its_log_level(monkeypatch):
+    import logging
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {"X-Fal-Key": _KEY})
+
+    async def _call(ctx):
+        raise ToolError(f"bad key {_KEY}", log_level=logging.WARNING)
+
+    entry, raised = _failing_call({}, _call)
+    assert _KEY not in str(raised) and raised.log_level == logging.WARNING
+
+
+def test_redactor_returning_non_text_withholds(monkeypatch):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, raised = _failing_call({}, _provider_401(), redact=lambda s: None)
+    assert entry["error"] == mw_mod.REDACTION_FAILED
+    assert _KEY not in str(raised)
+
+
+def test_default_redactor_over_real_http(monkeypatch):
+    # The production path end to end: a real streamable-HTTP request carrying the
+    # caller's key as a header, the DEFAULT redactor (no fakes for header reading).
+    import socket
+    import threading
+    import time
+
+    uvicorn = pytest.importorskip("uvicorn")
+    from fastmcp import Client, FastMCP
+    from fastmcp.client.transports import StreamableHttpTransport
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    store = {}
+    server = FastMCP("t")
+    server.add_middleware(MeteringMiddleware(UsageLedger(store), allowed={"o@x.com"}))
+
+    @server.tool
+    def synthesize(text: str) -> str:
+        raise RuntimeError(f"ElevenLabs 401: invalid api key {_KEY}")
+
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    http = uvicorn.Server(
+        uvicorn.Config(
+            server.http_app(), host="127.0.0.1", port=port, log_level="error"
+        )
+    )
+    thread = threading.Thread(target=http.run, daemon=True)
+    thread.start()
+    deadline = time.time() + 10
+    while not http.started and time.time() < deadline:
+        time.sleep(0.05)
+
+    async def _go():
+        transport = StreamableHttpTransport(
+            f"http://127.0.0.1:{port}/mcp", headers={"X-Elevenlabs-Key": _KEY}
+        )
+        async with Client(transport) as client:
+            return await client.call_tool(
+                "synthesize", {"text": "hi"}, raise_on_error=False
+            )
+
+    try:
+        result = _run(_go())
+    finally:
+        http.should_exit = True
+        thread.join(timeout=10)
+    assert result.is_error and _KEY not in str(result.content)
+    (entry,) = store.values()
+    assert _KEY not in entry["error"]
+    assert "<redacted:x-elevenlabs-key>" in entry["error"]

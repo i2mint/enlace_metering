@@ -13,7 +13,10 @@ Wires the three metering concerns into every tool call, **fail-closed**:
    decides *before* the call runs (deny → refuse). Then a **write-ahead** ledger row
    is written (if that write fails the call is refused — money is never spent
    un-recordably), the tool runs, and the row is updated with the actual ``cost_usd``
-   + outcome.
+   + outcome. A failed call's error text is passed through a **redactor** first: a
+   provider can quote the caller's bring-your-own key back in its error (ElevenLabs
+   does on a 401), and both the persistent ledger row and the re-raised exception
+   (which the model sees) must not carry it.
 
 This is the ``[mcp]`` layer (needs ``fastmcp``); the ledger + policy are pure and
 import-free of it. Generalizes braidio's bespoke ``MeteringMiddleware`` (which only
@@ -59,6 +62,154 @@ CostEstimator = Callable[[str, Mapping[str, Any]], Optional[float]]
 
 #: Pull the *actual* ``cost_usd`` out of a tool result for the ledger.
 CostExtractor = Callable[[Any], Optional[float]]
+
+#: Scrub caller secrets out of free text the connector did not author (a provider's
+#: error message) before it is persisted or re-raised: ``text -> clean text``.
+Redactor = Callable[[str], str]
+
+#: Request headers whose values are caller credentials: ``Authorization`` and any
+#: header named like ``X-<Provider>-Key`` / ``-Token`` / ``-Secret`` / ``-Password``
+#: (``X-Elevenlabs-Key``, ``X-Fal-Key``, ``X-Api-Key``...), so a new BYO-key header is
+#: covered without an edit here.
+SECRET_HEADER_PATTERN = re.compile(
+    r"^(proxy-)?authorization$|(^|-)(api-?key|key|token|secret|password)$",
+    re.IGNORECASE,
+)
+
+#: Shorter header values are not redacted: no credential is that short, and replacing
+#: a two-character value would maul every error text it happens to occur in.
+MIN_SECRET_CHARS = 8
+
+#: What a failed call's error becomes when the redactor itself fails: the text is
+#: withheld rather than persisted unredacted (fail closed).
+REDACTION_FAILED = "<error text withheld: redaction failed>"
+
+
+def _http_headers() -> dict[str, str]:
+    """All headers of the in-flight HTTP request (lowercased names), or ``{}``."""
+    try:
+        from fastmcp.server.dependencies import get_http_headers
+
+        return get_http_headers(include_all=True)
+    except Exception:  # noqa: BLE001 — no HTTP request in flight (stdio, tests)
+        return {}
+
+
+def request_secret_redactor(
+    *,
+    header_pattern: re.Pattern = SECRET_HEADER_PATTERN,
+    min_chars: int = MIN_SECRET_CHARS,
+    headers: Callable[[], Mapping[str, str]] = _http_headers,
+) -> Redactor:
+    """A :data:`Redactor` that scrubs the in-flight request's credential headers.
+
+    Every value of a header whose name matches ``header_pattern`` is replaced by
+    ``<redacted:{header name}>`` (an ``Authorization: Bearer <token>`` value is
+    redacted both whole and as its bare token). Headers are read when the redactor
+    is *called*, so it must run while the request is still in flight — inside the
+    middleware's error handling, which is where :class:`MeteringMiddleware` calls it.
+
+    >>> r = request_secret_redactor(headers=lambda: {"x-fal-key": "fal-SECRET-123"})
+    >>> r("fal 401: invalid key fal-SECRET-123")
+    'fal 401: invalid key <redacted:x-fal-key>'
+    >>> r("nothing to hide")
+    'nothing to hide'
+    """
+
+    def secrets() -> dict[str, str]:
+        found: dict[str, str] = {}
+        for name, value in headers().items():
+            if not header_pattern.search(name):
+                continue
+            value = str(value).strip()
+            for candidate in (value, value.rsplit(None, 1)[-1] if value else ""):
+                if len(candidate) >= min_chars:
+                    found.setdefault(candidate, name.lower())
+        return found
+
+    def redact(text: str) -> str:
+        # Longest first, so a secret that contains another is not half-replaced.
+        for value, name in sorted(secrets().items(), key=lambda kv: -len(kv[0])):
+            text = text.replace(value, f"<redacted:{name}>")
+        return text
+
+    return redact
+
+
+#: The default :data:`Redactor`: the in-flight request's credential headers.
+redact_request_secrets: Redactor = request_secret_redactor()
+
+
+def _redact_safely(redact: Redactor, text: str) -> str:
+    """``redact(text)``, or :data:`REDACTION_FAILED` if the redactor fails.
+
+    A redactor that raises or returns a non-string has failed: the text is
+    withheld rather than persisted or re-raised unredacted.
+    """
+    try:
+        clean = redact(text)
+    except Exception:  # noqa: BLE001 — never persist or re-raise unredacted text
+        clean = None
+    if not isinstance(clean, str):
+        _logger.warning("enlace_metering: redactor failed; error text withheld")
+        return REDACTION_FAILED
+    return clean
+
+
+def _renderings(exc: BaseException):
+    """Every text ``exc`` can render: str, repr and notes, down its whole chain.
+
+    A traceback printer walks ``__cause__``/``__context__`` and prints notes, so a
+    secret anywhere in there escapes with the exception even when its own message
+    is clean (``ToolError("Error calling tool") from <dirty>`` under fastmcp's
+    ``mask_error_details``).
+    """
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        for render in (str, repr):
+            try:
+                yield render(exc)
+            except Exception:  # noqa: BLE001 — an unrenderable link renders nothing
+                pass
+        for note in getattr(exc, "__notes__", None) or ():
+            yield str(note)
+        exc = exc.__cause__ or exc.__context__
+
+
+def _scrubbed_exception(
+    exc: BaseException, redact: Redactor
+) -> Optional[BaseException]:
+    """A stand-in for ``exc`` that renders no secret, or ``None`` if ``exc`` is clean.
+
+    Rebuilt as ``type(exc)(clean_text)`` so a caller classifying on the type still
+    can; falls back to :class:`ToolError` when the type will not construct that way
+    or still renders something the redactor would change. The stand-in carries no
+    cause/context chain (the caller raises it outside the ``except``), since the
+    original — and whatever it chained — is exactly what must not escape.
+    """
+    if all(_redact_safely(redact, t) == t for t in _renderings(exc)):
+        return None
+    try:
+        text = str(exc)
+    except Exception:  # noqa: BLE001
+        text = type(exc).__name__
+    clean = _redact_safely(redact, text)
+    try:
+        new = type(exc)(clean)
+        if str(new) != clean:
+            raise TypeError("rebuilt exception renders differently")
+    except Exception:  # noqa: BLE001 — typed fallback
+        new = ToolError(clean)
+    if hasattr(exc, "log_level"):  # fastmcp's ToolError carries its own log level
+        try:
+            new.log_level = exc.log_level
+        except Exception:  # noqa: BLE001 — cosmetic
+            pass
+    notes = getattr(exc, "__notes__", None)
+    if notes:
+        new.__notes__ = [_redact_safely(redact, str(n)) for n in notes]
+    return new
 
 
 def token_email() -> Optional[str]:
@@ -144,6 +295,12 @@ class MeteringMiddleware(Middleware):
         estimate_cost: optional proposed-cost estimator for forward-looking gating.
         extract_cost: pull actual ``cost_usd`` from a tool result (default reads
             ``structured_content['cost_usd']``).
+        metered_tools: when given, only these tools are gated (others are recorded,
+            never denied); ``None`` gates every tool.
+        redact: the :data:`Redactor` applied to a failed call's error text before it
+            is written to the ledger and re-raised (default
+            :data:`redact_request_secrets`: the in-flight request's credential
+            headers). Compose with a host's own when its secrets arrive another way.
     """
 
     def __init__(
@@ -157,6 +314,7 @@ class MeteringMiddleware(Middleware):
         estimate_cost: Optional[CostEstimator] = None,
         extract_cost: Optional[CostExtractor] = None,
         metered_tools: Optional[set[str]] = None,
+        redact: Optional[Redactor] = None,
     ):
         self.ledger = ledger
         self.policy: GatePolicy = policy or unlimited()
@@ -170,6 +328,7 @@ class MeteringMiddleware(Middleware):
         # free/read-only tools (list/get/help) to retrieve what they already made.
         # ``None`` gates every tool.
         self.metered_tools = set(metered_tools) if metered_tools is not None else None
+        self.redact: Redactor = redact or redact_request_secrets
         self._seq = itertools.count()
 
     def _authorize(self) -> str:
@@ -248,6 +407,7 @@ class MeteringMiddleware(Middleware):
                 "usage ledger unavailable; refusing to run to avoid untracked spend"
             ) from exc
 
+        scrubbed: Optional[BaseException] = None
         try:
             result = await call_next(context)
             entry["cost_usd"] = self.extract_cost(result)
@@ -262,9 +422,17 @@ class MeteringMiddleware(Middleware):
             return result
         except Exception as exc:  # noqa: BLE001 — record the failure, then re-raise
             entry["status"] = "error"
-            entry["error"] = repr(exc)
+            # The row is persistent and a provider may quote the caller's key back in
+            # its error — redact while the request (and so the key) is still in flight.
+            try:
+                rendered = repr(exc)
+            except Exception:  # noqa: BLE001 — a broken __repr__ must not chain exc
+                rendered = type(exc).__name__
+            entry["error"] = _redact_safely(self.redact, rendered)
             entry["elapsed_s"] = (time.time_ns() - t0) / 1e9
-            raise
+            scrubbed = _scrubbed_exception(exc, self.redact)
+            if scrubbed is None:
+                raise
         finally:
             try:
                 self.ledger.record(entry)
@@ -277,6 +445,9 @@ class MeteringMiddleware(Middleware):
                     "(started row retained; its cost_usd will be missing)",
                     entry.get("id"),
                 )
+        # Only reached when the call failed with an error that quoted a secret: raised
+        # outside the handler, so the dirty original is not its __context__.
+        raise scrubbed from None
 
 
 __all__ = [
@@ -285,4 +456,8 @@ __all__ = [
     "current_email",
     "CostEstimator",
     "CostExtractor",
+    "Redactor",
+    "request_secret_redactor",
+    "redact_request_secrets",
+    "SECRET_HEADER_PATTERN",
 ]
