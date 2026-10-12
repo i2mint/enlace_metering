@@ -538,7 +538,8 @@ def test_env_credentials_are_recognised_by_name(monkeypatch, name):
 
     entry, raised = _failing_call({}, _call)
     assert _ENV_KEY not in entry["error"] and _ENV_KEY not in str(raised)
-    assert f"<redacted:env:{name}>" in entry["error"]
+    # Windows upper-cases environment variable names.
+    assert f"<redacted:env:{name}>".lower() in entry["error"].lower()
 
 
 @pytest.mark.parametrize(
