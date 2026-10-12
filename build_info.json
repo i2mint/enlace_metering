@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-12T21:22:53Z",
+  "built_at": "2026-10-12T22:31:52Z",
   "package": {
     "name": "enlace_metering",
     "version": "0.0.1",
@@ -9,24 +9,24 @@
   },
   "git": {
     "available": true,
-    "commit": "3098f568346fe45667390f13d1e2d7dbc01dfd46",
-    "short_commit": "3098f56",
+    "commit": "e8f7311e70528c5780903c7444e1cee0e4c5e07f",
+    "short_commit": "e8f7311",
     "branch": "main",
     "tags": [],
     "dirty": false,
     "remote_url": "https://github.com/i2mint/enlace_metering",
-    "commit_url": "https://github.com/i2mint/enlace_metering/commit/3098f568346fe45667390f13d1e2d7dbc01dfd46",
+    "commit_url": "https://github.com/i2mint/enlace_metering/commit/e8f7311e70528c5780903c7444e1cee0e4c5e07f",
     "error": null
   },
   "ci": {
     "provider": "github",
     "repository": "i2mint/enlace_metering",
-    "sha": "3098f568346fe45667390f13d1e2d7dbc01dfd46",
+    "sha": "e8f7311e70528c5780903c7444e1cee0e4c5e07f",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "38310110429",
-    "run_url": "https://github.com/i2mint/enlace_metering/actions/runs/38310110429",
+    "run_id": "38317053316",
+    "run_url": "https://github.com/i2mint/enlace_metering/actions/runs/38317053316",
     "server_url": "https://github.com"
   },
   "tools": {
@@ -64,7 +64,7 @@
     "relation": "unknown",
     "error": null
   },
-  "reproduce": "git clone https://github.com/i2mint/enlace_metering && cd enlace_metering\ngit checkout 3098f568346fe45667390f13d1e2d7dbc01dfd46\npip install \"epythet==0.2.12\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "reproduce": "git clone https://github.com/i2mint/enlace_metering && cd enlace_metering\ngit checkout e8f7311e70528c5780903c7444e1cee0e4c5e07f\npip install \"epythet==0.2.12\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
   "warnings": [],
   "alignment": {
     "aligned": true,

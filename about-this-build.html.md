@@ -2,7 +2,7 @@
 
 # About this build
 
-This documentation was built on **2026-10-12 21:22 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/3098f568346fe45667390f13d1e2d7dbc01dfd46"><code>3098f56</code></a> on branch <code>main</code>, for **enlace_metering 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-12 22:31 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/e8f7311e70528c5780903c7444e1cee0e4c5e07f"><code>e8f7311</code></a> on branch <code>main</code>, for **enlace_metering 0.0.1** (from <code>pyproject.toml</code>).
 
 #### NOTE
 Nothing suggests a mismatch: the tree was clean at the commit above, and the documented version is the one on PyPI.
@@ -11,7 +11,7 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 |                     |                                                                                                                                                               |
 |---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/enlace_metering/commit/3098f568346fe45667390f13d1e2d7dbc01dfd46"><code>3098f568346fe45667390f13d1e2d7dbc01dfd46</code></a> |
+| Commit              | <a href="https://github.com/i2mint/enlace_metering/commit/e8f7311e70528c5780903c7444e1cee0e4c5e07f"><code>e8f7311e70528c5780903c7444e1cee0e4c5e07f</code></a> |
 | Branch              | <code>main</code>                                                                                                                                             |
 | Tags at this commit | none                                                                                                                                                          |
 | Working tree        | clean                                                                                                                                                         |
@@ -22,9 +22,9 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 |              |                                                                                              |
 |--------------|----------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/enlace_metering</code>                                                          |
-| Run          | <a href="https://github.com/i2mint/enlace_metering/actions/runs/38310110429">38310110429</a> |
+| Run          | <a href="https://github.com/i2mint/enlace_metering/actions/runs/38317053316">38317053316</a> |
 | Ref          | <code>refs/heads/main</code>                                                                 |
-| Event commit | <code>3098f568346fe45667390f13d1e2d7dbc01dfd46</code> (in the history of the built commit)   |
+| Event commit | <code>e8f7311e70528c5780903c7444e1cee0e4c5e07f</code> (in the history of the built commit)   |
 
 ## Tools
 
@@ -55,7 +55,7 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 ```bash
 git clone https://github.com/i2mint/enlace_metering && cd enlace_metering
-git checkout 3098f568346fe45667390f13d1e2d7dbc01dfd46
+git checkout e8f7311e70528c5780903c7444e1cee0e4c5e07f
 pip install "epythet==0.2.12"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```

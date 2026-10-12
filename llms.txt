@@ -10,7 +10,7 @@
 - [enlace_metering](_autosummary/enlace_metering.html.md): enlace_metering — usage tracking + credit/quota access-gating for enlace connectors.
 - [enlace_metering.ledger](_autosummary/enlace_metering.ledger.html.md): Durable usage ledger — the &#42;recording&#42; half of metering.
 - [enlace_metering.policy](_autosummary/enlace_metering.policy.html.md): Access-gating policies — the &#42;enforcement&#42; half of metering (deny before spend).
-- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-12 21:22 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
+- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-12 22:31 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
 
 ## Optional
 
