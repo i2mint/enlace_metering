@@ -647,14 +647,118 @@ def test_a_failing_redactor_withholds_the_log_text(monkeypatch):
     assert _ENV_KEY not in text and mw_mod.REDACTION_FAILED in text
 
 
-def test_log_redaction_is_installed_once(monkeypatch):
+def test_log_redaction_is_installed_once():
     import logging
 
     for _ in range(3):
         MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
-    for name in ("fastmcp", "fastmcp.server.server"):
-        filters = [
-            f for f in logging.getLogger(name).filters
-            if isinstance(f, mw_mod.RedactingLogFilter)
-        ]
-        assert len(filters) == 1, name
+    depth, factory = 0, logging.getLogRecordFactory()
+    assert getattr(factory, "_enlace_metering_redacting", False)
+    while getattr(factory, "_enlace_metering_redacting", False):
+        depth += 1
+        factory = factory.__closure__[0].cell_contents if factory.__closure__ else None
+        if depth > 5:
+            break
+    assert depth == 1
+
+
+def test_a_logger_created_after_the_middleware_is_redacted(monkeypatch):
+    """fastmcp 4.x creates the logger that writes the tool traceback lazily, after
+    the middleware exists: the redaction must not depend on creation order."""
+    import io
+    import logging
+    import uuid
+
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
+    monkeypatch.setenv("FAL_KEY", _ENV_KEY)
+    late = logging.getLogger(f"fastmcp.late_{uuid.uuid4().hex}")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    late.addHandler(handler)
+    try:
+        try:
+            raise RuntimeError(f"fal 401 {_ENV_KEY}")
+        except RuntimeError:
+            late.exception("Error calling tool")
+    finally:
+        late.removeHandler(handler)
+    assert "<redacted:env:FAL_KEY>" in out.getvalue() and _ENV_KEY not in out.getvalue()
+
+
+def test_redact_logs_can_name_the_connectors_own_namespace(monkeypatch):
+    import io
+    import logging
+
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"}, redact_logs=("braidio_t",))
+    monkeypatch.setenv("ELEVENLABS_API_KEY", _ENV_KEY)
+    logger = logging.getLogger("braidio_t.synth")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    logger.addHandler(handler)
+    try:
+        logger.error("provider said %s", _ENV_KEY)
+    finally:
+        logger.removeHandler(handler)
+    assert _ENV_KEY not in out.getvalue()
+
+
+def test_other_namespaces_are_untouched():
+    import logging
+
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
+    record = logging.getLogger("unrelated.lib").makeRecord(
+        "unrelated.lib", logging.INFO, __file__, 1, "x %s", ("y",), None
+    )
+    assert record.msg == "x %s" and record.args == ("y",)
+
+
+def test_a_key_inside_an_exception_group_is_not_reraised(monkeypatch):
+    import traceback
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {})
+    monkeypatch.setenv("FAL_KEY", _ENV_KEY)
+
+    async def _call(ctx):
+        inner = RuntimeError("provider failed")
+        inner.add_note(f"key was {_ENV_KEY}")
+        raise ExceptionGroup("tool failed", [inner])
+
+    entry, raised = _failing_call({}, _call)
+    assert _ENV_KEY not in "".join(traceback.format_exception(raised))
+
+
+@pytest.mark.parametrize(
+    "quoted",
+    ["fal-id%3A" + "s3cr3t-part-0123", "s3cr3t-part-0123"],
+    ids=["url-encoded", "secret-segment"],
+)
+def test_transformed_forms_of_a_key_are_redacted(quoted):
+    redact = mw_mod.secret_redactor(
+        headers=dict, environ=lambda: {"FAL_KEY": "fal-id:s3cr3t-part-0123"}
+    )
+    assert "s3cr3t-part-0123" not in redact(f"401 for {quoted}")
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["SMTP_PASS", "GPG_PASSPHRASE", "SENTRY_DSN", "API_KEYS", "APP_SECRETS",
+     "GITHUB_PAT", "DB_CREDS", "SSH_PRIVATE_KEY", "PRIVATEKEY"],
+)
+def test_more_credential_names(monkeypatch, name):
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {name: _ENV_KEY})
+    assert _ENV_KEY not in redact(_ENV_KEY)
+
+
+@pytest.mark.parametrize(
+    "name", ["S3_KEY_PREFIX", "SSH_KEY_PATH", "TOKEN_URL", "AWS_ACCESS_KEY_ID", "KEY_FILE"]
+)
+def test_names_about_a_credential_are_not_one(name):
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {name: "uploads/area"})
+    assert redact("wrote uploads/area") == "wrote uploads/area"
+
+
+def test_a_password_in_any_url_is_redacted():
+    url = "postgres://app:hunter2hunter2@db.internal/main"
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {"DATABASE_URL": url})
+    assert "hunter2hunter2" not in redact(f"cannot connect: {url}")

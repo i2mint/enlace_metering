@@ -67,7 +67,9 @@ The default, `redact_secrets`, replaces in one pass, longest first:
 
 So a new BYO-key header or a new provider key in the environment is covered without configuration. For a secret named otherwise, `MeteringMiddleware(ledger, redact=secret_redactor(env_names=["MY_URL_WITH_TOKEN"]))`; any `redact(text) -> text` works. If the redactor raises, the error text is withheld rather than recorded unredacted.
 
-fastmcp logs a failing tool's traceback *before* the middleware sees the exception, so the middleware also installs a `RedactingLogFilter` on fastmcp's loggers (`install_log_redaction()`): what reaches the connector's journal is redacted the same way, with the in-flight call's redactor. `MeteringMiddleware(..., redact_logs=False)` opts out.
+Each secret is also matched URL-encoded and per `:`-separated part (fal keys are `id:secret`), and any env var whose value is a URL with a password in it is redacted whatever its name. Names that describe a credential rather than hold one (`S3_KEY_PREFIX`, `SSH_KEY_PATH`, `TOKEN_URL`, `AWS_ACCESS_KEY_ID`) are left alone. A provider that quotes only a truncated prefix is out of reach.
+
+fastmcp logs a failing tool's traceback *before* the middleware sees the exception, so the middleware also redacts fastmcp's log records (`install_log_redaction()`, a chained `LogRecordFactory`, so loggers created later are covered too): what reaches the connector's journal is redacted the same way, with the in-flight call's redactor. `redact_logs=("mypkg",)` adds the connector's own logger namespaces; `redact_logs=False` opts out. `RedactingLogFilter` does the same for a logger or handler of your choice.
 
 ## Install
 
