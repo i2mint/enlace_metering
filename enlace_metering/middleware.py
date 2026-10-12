@@ -14,9 +14,10 @@ Wires the three metering concerns into every tool call, **fail-closed**:
    is written (if that write fails the call is refused — money is never spent
    un-recordably), the tool runs, and the row is updated with the actual ``cost_usd``
    + outcome. A failed call's error text is passed through a **redactor** first: a
-   provider can quote the caller's bring-your-own key back in its error (ElevenLabs
-   does on a 401), and both the persistent ledger row and the re-raised exception
-   (which the model sees) must not carry it.
+   provider can quote a key back in its error (ElevenLabs does on a 401) — the
+   caller's bring-your-own key from a request header, or the host's own key from
+   its environment — and neither the persistent ledger row nor the re-raised
+   exception (which the model sees) may carry it.
 
 This is the ``[mcp]`` layer (needs ``fastmcp``); the ledger + policy are pure and
 import-free of it. Generalizes braidio's bespoke ``MeteringMiddleware`` (which only
@@ -27,11 +28,14 @@ from __future__ import annotations
 
 import itertools
 import logging
+import os
 import re
 import time
+import traceback
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Iterable, Mapping, Optional, Union
+from urllib.parse import quote
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
@@ -76,8 +80,30 @@ SECRET_HEADER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-#: Shorter header values are not redacted: no credential is that short, and replacing
-#: a two-character value would maul every error text it happens to occur in.
+#: Environment variables whose values are the HOST's own credentials (a connector's
+#: provider keys): any name with a credential word as a whole ``_``-separated segment
+#: (``ELEVENLABS_API_KEY``, ``FAL_KEY``, ``REELEE_MCP_DOWNLOAD_SECRET``, ``SHARED_PW_X``,
+#: ``SMTP_PASS``, ``SENTRY_DSN``), so a new provider key is covered without an edit
+#: here. ``PWD`` is not ``PW``.
+SECRET_ENV_PATTERN = re.compile(
+    r"(^|_)(api_?keys?|keys?|tokens?|secrets?|passwords?|passwd|pass|passphrase|pw|pat"
+    r"|credentials?|creds|dsn|private_?key)(_|$)",
+    re.IGNORECASE,
+)
+
+#: ...unless the name says the value is ABOUT a credential, not one (``S3_KEY_PREFIX``,
+#: ``SSH_KEY_PATH``, ``TOKEN_URL``, ``AWS_ACCESS_KEY_ID``): redacting those would maul
+#: every error that mentions an ordinary path or URL.
+NOT_SECRET_ENV_SUFFIX = re.compile(
+    r"_(prefix|path|file|dir|url|uri|id|name|type|header|ttl|seconds|size)$", re.IGNORECASE
+)
+
+#: A URL carrying a password in its userinfo (``DATABASE_URL=postgres://u:pw@h/db``):
+#: redacted whatever the variable is called.
+URL_WITH_PASSWORD = re.compile(r"://[^/@\s:]+:[^/@\s]+@")
+
+#: Shorter header/env values are not redacted: no credential is that short, and
+#: replacing a two-character value would maul every error text it happens to occur in.
 MIN_SECRET_CHARS = 8
 
 #: What a failed call's error becomes when the redactor itself fails: the text is
@@ -95,19 +121,97 @@ def _http_headers() -> dict[str, str]:
         return {}
 
 
+def _environ() -> Mapping[str, str]:
+    return os.environ
+
+
+def secret_redactor(
+    *,
+    header_pattern: Optional[re.Pattern] = SECRET_HEADER_PATTERN,
+    env_pattern: Optional[re.Pattern] = SECRET_ENV_PATTERN,
+    env_names: Iterable[str] = (),
+    min_chars: int = MIN_SECRET_CHARS,
+    headers: Callable[[], Mapping[str, str]] = _http_headers,
+    environ: Callable[[], Mapping[str, str]] = _environ,
+) -> Redactor:
+    """A :data:`Redactor` that scrubs every secret this process can know about.
+
+    Two sources, both read when the redactor is *called*:
+
+    - the in-flight request's credential headers (names matching ``header_pattern``):
+      a caller's bring-your-own key, replaced by ``<redacted:{header name}>`` (an
+      ``Authorization: Bearer <token>`` value is redacted both whole and as its bare
+      token). This is why it must run while the request is still in flight — inside
+      the middleware's error handling, which is where :class:`MeteringMiddleware`
+      calls it;
+    - the process environment (names matching ``env_pattern``, plus ``env_names``):
+      the host's own provider keys, replaced by ``<redacted:env:{NAME}>``.
+
+    Each secret is also matched URL-encoded and per ``:``-separated part. All are
+    replaced longest first, so one that contains another is never half-replaced.
+    A provider that quotes only a truncated prefix is out of reach. ``None`` for a
+    pattern turns that source off.
+
+    >>> r = secret_redactor(
+    ...     headers=lambda: {"x-fal-key": "fal-CALLER-123"},
+    ...     environ=lambda: {"FAL_KEY": "fal-SERVER-456", "HOME": "/home/someone"},
+    ... )
+    >>> r("401: invalid key fal-CALLER-123 (fallback fal-SERVER-456) in /home/someone")
+    '401: invalid key <redacted:x-fal-key> (fallback <redacted:env:FAL_KEY>) in /home/someone'
+    """
+    extra_names = frozenset(env_names)
+
+    def candidates():
+        if header_pattern is not None:
+            for name, value in headers().items():
+                if header_pattern.search(name):
+                    value = str(value).strip()
+                    label = name.lower()
+                    yield value, label
+                    if value:  # `Bearer <token>`: the bare token too
+                        yield value.rsplit(None, 1)[-1], label
+        if env_pattern is not None or extra_names:
+            for name, value in environ().items():
+                value = str(value).strip()
+                if name in extra_names or (
+                    env_pattern is not None
+                    and (
+                        (env_pattern.search(name) and not NOT_SECRET_ENV_SUFFIX.search(name))
+                        or URL_WITH_PASSWORD.search(value)
+                    )
+                ):
+                    yield value, f"env:{name}"
+
+    def variants(value: str):
+        """The forms a provider may quote a secret in: as is, URL-encoded, and each
+        ``:``-separated part (fal keys are ``id:secret``)."""
+        yield value
+        yield quote(value, safe="")
+        yield from value.split(":")
+
+    def redact(text: str) -> str:
+        found: dict[str, str] = {}
+        for value, label in candidates():
+            for form in variants(value):
+                if len(form) >= min_chars:
+                    found.setdefault(form, label)
+        for value, label in sorted(found.items(), key=lambda kv: -len(kv[0])):
+            text = text.replace(value, f"<redacted:{label}>")
+        return text
+
+    return redact
+
+
 def request_secret_redactor(
     *,
     header_pattern: re.Pattern = SECRET_HEADER_PATTERN,
     min_chars: int = MIN_SECRET_CHARS,
     headers: Callable[[], Mapping[str, str]] = _http_headers,
 ) -> Redactor:
-    """A :data:`Redactor` that scrubs the in-flight request's credential headers.
+    """A :data:`Redactor` for the in-flight request's credential headers only.
 
-    Every value of a header whose name matches ``header_pattern`` is replaced by
-    ``<redacted:{header name}>`` (an ``Authorization: Bearer <token>`` value is
-    redacted both whole and as its bare token). Headers are read when the redactor
-    is *called*, so it must run while the request is still in flight — inside the
-    middleware's error handling, which is where :class:`MeteringMiddleware` calls it.
+    :func:`secret_redactor` with the environment source off (kept for callers that
+    want exactly that; the middleware's default also covers the environment).
 
     >>> r = request_secret_redactor(headers=lambda: {"x-fal-key": "fal-SECRET-123"})
     >>> r("fal 401: invalid key fal-SECRET-123")
@@ -115,29 +219,18 @@ def request_secret_redactor(
     >>> r("nothing to hide")
     'nothing to hide'
     """
-
-    def secrets() -> dict[str, str]:
-        found: dict[str, str] = {}
-        for name, value in headers().items():
-            if not header_pattern.search(name):
-                continue
-            value = str(value).strip()
-            for candidate in (value, value.rsplit(None, 1)[-1] if value else ""):
-                if len(candidate) >= min_chars:
-                    found.setdefault(candidate, name.lower())
-        return found
-
-    def redact(text: str) -> str:
-        # Longest first, so a secret that contains another is not half-replaced.
-        for value, name in sorted(secrets().items(), key=lambda kv: -len(kv[0])):
-            text = text.replace(value, f"<redacted:{name}>")
-        return text
-
-    return redact
+    return secret_redactor(
+        header_pattern=header_pattern, env_pattern=None, min_chars=min_chars,
+        headers=headers,
+    )
 
 
-#: The default :data:`Redactor`: the in-flight request's credential headers.
+#: The in-flight request's credential headers only (see :func:`request_secret_redactor`).
 redact_request_secrets: Redactor = request_secret_redactor()
+
+#: The default :data:`Redactor`: the request's credential headers AND the host's own
+#: credential env vars (see :func:`secret_redactor`).
+redact_secrets: Redactor = secret_redactor()
 
 
 def _redact_safely(redact: Redactor, text: str) -> str:
@@ -164,6 +257,10 @@ def _renderings(exc: BaseException):
     is clean (``ToolError("Error calling tool") from <dirty>`` under fastmcp's
     ``mask_error_details``).
     """
+    try:  # the printer's own view: ExceptionGroup members, their notes and causes
+        yield "".join(traceback.format_exception(exc))
+    except Exception:  # noqa: BLE001
+        pass
     seen: set[int] = set()
     while exc is not None and id(exc) not in seen:
         seen.add(id(exc))
@@ -210,6 +307,87 @@ def _scrubbed_exception(
     if notes:
         new.__notes__ = [_redact_safely(redact, str(n)) for n in notes]
     return new
+
+
+#: The redactor of the metered call in flight, for :func:`redact_log_record`. Unset
+#: outside a call, where it falls back to :data:`redact_secrets`.
+_CURRENT_REDACTOR: ContextVar[Optional[Redactor]] = ContextVar(
+    "enlace_metering_redactor", default=None
+)
+
+
+def redact_log_record(record: logging.LogRecord) -> None:
+    """Redact ``record`` in place: message and traceback, with the in-flight call's
+    redactor (so it still sees the request's headers), else :data:`redact_secrets`.
+
+    A dirty traceback is replaced by its redacted text. If redaction fails, the
+    record's text is withheld. Never raises (it runs inside the caller's logging
+    call) and never drops a record.
+    """
+    redact = _CURRENT_REDACTOR.get() or redact_secrets
+    try:
+        message = record.getMessage()
+        tb = (
+            "".join(traceback.format_exception(*record.exc_info))
+            if record.exc_info and record.exc_info[0] is not None
+            else ""
+        )
+        stack = record.stack_info or ""
+        clean_message = _redact_safely(redact, message)
+        clean_tb = _redact_safely(redact, tb) if tb else ""
+        clean_stack = _redact_safely(redact, stack) if stack else ""
+        if clean_message != message:
+            record.msg, record.args = clean_message, None
+        if clean_tb != tb:
+            record.msg, record.args = f"{clean_message}\n{clean_tb}".rstrip(), None
+            record.exc_info, record.exc_text = None, None
+        if clean_stack != stack:
+            record.stack_info = clean_stack
+    except Exception:  # noqa: BLE001 — never break the caller's logging call
+        record.msg, record.args = REDACTION_FAILED, None
+        record.exc_info = record.exc_text = record.stack_info = None
+
+
+class RedactingLogFilter(logging.Filter):
+    """:func:`redact_log_record` as a filter, for a host's own loggers or handlers
+    (e.g. a connector's package logger that logs provider errors)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        redact_log_record(record)
+        return True
+
+
+#: The loggers a failing tool's traceback is written to before the middleware sees
+#: it: fastmcp's whole namespace (3.4.5 logs from ``fastmcp.server.server``, 4.x from
+#: ``fastmcp.tools.base``).
+LOG_NAMESPACES = ("fastmcp",)
+
+#: The namespaces whose records the installed record factory redacts (grows only).
+_REDACTED_NAMESPACES: set[str] = set()
+
+
+def install_log_redaction(*, namespaces: Iterable[str] = LOG_NAMESPACES) -> None:
+    """Redact every log record created under ``namespaces``, from now on.
+
+    Wraps the process's ``LogRecordFactory`` (chained, installed once), so it
+    covers loggers created *later* too — fastmcp 4.x creates the one that writes
+    the tool traceback lazily — and whatever handler the host configures. Calling
+    again only adds namespaces.
+    """
+    _REDACTED_NAMESPACES.update(namespaces)
+    previous = logging.getLogRecordFactory()
+    if getattr(previous, "_enlace_metering_redacting", False):
+        return
+
+    def factory(*args, **kwargs):
+        record = previous(*args, **kwargs)
+        name = record.name
+        if any(name == ns or name.startswith(ns + ".") for ns in _REDACTED_NAMESPACES):
+            redact_log_record(record)
+        return record
+
+    factory._enlace_metering_redacting = True
+    logging.setLogRecordFactory(factory)
 
 
 def token_email() -> Optional[str]:
@@ -298,9 +476,14 @@ class MeteringMiddleware(Middleware):
         metered_tools: when given, only these tools are gated (others are recorded,
             never denied); ``None`` gates every tool.
         redact: the :data:`Redactor` applied to a failed call's error text before it
-            is written to the ledger and re-raised (default
-            :data:`redact_request_secrets`: the in-flight request's credential
-            headers). Compose with a host's own when its secrets arrive another way.
+            is written to the ledger and re-raised (default :data:`redact_secrets`:
+            the in-flight request's credential headers and the host's credential
+            env vars). Build one with :func:`secret_redactor` (e.g. ``env_names=``)
+            when a secret arrives another way. The same redactor is installed on
+            fastmcp's log records (:func:`install_log_redaction`), which carry a
+            failing tool's traceback before this middleware sees it. Pass logger
+            namespaces (``redact_logs=("braidio",)``) to cover the connector's own
+            loggers too; ``redact_logs=False`` opts out.
     """
 
     def __init__(
@@ -315,6 +498,7 @@ class MeteringMiddleware(Middleware):
         extract_cost: Optional[CostExtractor] = None,
         metered_tools: Optional[set[str]] = None,
         redact: Optional[Redactor] = None,
+        redact_logs: Union[bool, Iterable[str]] = True,
     ):
         self.ledger = ledger
         self.policy: GatePolicy = policy or unlimited()
@@ -328,7 +512,12 @@ class MeteringMiddleware(Middleware):
         # free/read-only tools (list/get/help) to retrieve what they already made.
         # ``None`` gates every tool.
         self.metered_tools = set(metered_tools) if metered_tools is not None else None
-        self.redact: Redactor = redact or redact_request_secrets
+        self.redact: Redactor = redact or redact_secrets
+        if redact_logs:
+            install_log_redaction(
+                namespaces=LOG_NAMESPACES if redact_logs is True
+                else (*LOG_NAMESPACES, *redact_logs)
+            )
         self._seq = itertools.count()
 
     def _authorize(self) -> str:
@@ -355,9 +544,11 @@ class MeteringMiddleware(Middleware):
     async def on_call_tool(self, context, call_next):
         email = self._authorize()
         token = _CURRENT_EMAIL.set(email)
+        redactor = _CURRENT_REDACTOR.set(self.redact)
         try:
             return await self._gate_and_meter(context, call_next, email)
         finally:
+            _CURRENT_REDACTOR.reset(redactor)
             _CURRENT_EMAIL.reset(token)
 
     async def _gate_and_meter(self, context, call_next, email: str):
@@ -457,7 +648,13 @@ __all__ = [
     "CostEstimator",
     "CostExtractor",
     "Redactor",
+    "secret_redactor",
+    "redact_secrets",
     "request_secret_redactor",
     "redact_request_secrets",
     "SECRET_HEADER_PATTERN",
+    "SECRET_ENV_PATTERN",
+    "RedactingLogFilter",
+    "redact_log_record",
+    "install_log_redaction",
 ]

@@ -417,9 +417,14 @@ def test_redactor_returning_non_text_withholds(monkeypatch):
     assert _KEY not in str(raised)
 
 
-def test_default_redactor_over_real_http(monkeypatch):
-    # The production path end to end: a real streamable-HTTP request carrying the
-    # caller's key as a header, the DEFAULT redactor (no fakes for header reading).
+def _real_http_failing_call(monkeypatch, *, error_text, headers):
+    """Serve a metered tool that raises ``error_text`` over real streamable HTTP,
+    with the DEFAULT redactor, and call it with ``headers``.
+
+    Returns ``(client result, ledger row, everything fastmcp logged)``.
+    """
+    import io
+    import logging
     import socket
     import threading
     import time
@@ -435,7 +440,14 @@ def test_default_redactor_over_real_http(monkeypatch):
 
     @server.tool
     def synthesize(text: str) -> str:
-        raise RuntimeError(f"ElevenLabs 401: invalid api key {_KEY}")
+        raise RuntimeError(error_text)
+
+    # What a journald handler on the fastmcp logger would receive, traceback included.
+    logs = io.StringIO()
+    handler = logging.StreamHandler(logs)
+    handler.setFormatter(logging.Formatter("%(name)s %(message)s"))
+    fastmcp_logger = logging.getLogger("fastmcp")
+    fastmcp_logger.addHandler(handler)
 
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -454,7 +466,7 @@ def test_default_redactor_over_real_http(monkeypatch):
 
     async def _go():
         transport = StreamableHttpTransport(
-            f"http://127.0.0.1:{port}/mcp", headers={"X-Elevenlabs-Key": _KEY}
+            f"http://127.0.0.1:{port}/mcp", headers=headers
         )
         async with Client(transport) as client:
             return await client.call_tool(
@@ -466,7 +478,288 @@ def test_default_redactor_over_real_http(monkeypatch):
     finally:
         http.should_exit = True
         thread.join(timeout=10)
-    assert result.is_error and _KEY not in str(result.content)
+        fastmcp_logger.removeHandler(handler)
     (entry,) = store.values()
+    return result, entry, logs.getvalue()
+
+
+def test_default_redactor_over_real_http(monkeypatch):
+    # The production path end to end: a real streamable-HTTP request carrying the
+    # caller's key as a header, the DEFAULT redactor (no fakes for header reading).
+    result, entry, logs = _real_http_failing_call(
+        monkeypatch,
+        error_text=f"ElevenLabs 401: invalid api key {_KEY}",
+        headers={"X-Elevenlabs-Key": _KEY},
+    )
+    assert result.is_error and _KEY not in str(result.content)
     assert _KEY not in entry["error"]
     assert "<redacted:x-elevenlabs-key>" in entry["error"]
+    assert "Error calling tool" in logs and _KEY not in logs  # enlace_metering#3
+
+
+# ---------------------------------------------------------------------------
+# The host's own keys, from its environment (tw_platform#307)
+# ---------------------------------------------------------------------------
+
+_ENV_KEY = "sk_server_fedcba9876543210"
+
+
+def test_server_env_key_redacted_over_real_http(monkeypatch):
+    """THE acceptance for tw_platform#307: the connector's own provider key comes
+    from its environment, not a header; a provider quoting it back must reach
+    neither the ledger row, the client, nor fastmcp's traceback log."""
+    monkeypatch.setenv("ELEVENLABS_API_KEY", _ENV_KEY)
+    result, entry, logs = _real_http_failing_call(
+        monkeypatch,
+        error_text=f"ElevenLabs 401: invalid api key {_ENV_KEY}",
+        headers={},
+    )
+    assert result.is_error and _ENV_KEY not in str(result.content)
+    assert _ENV_KEY not in entry["error"]
+    assert "<redacted:env:ELEVENLABS_API_KEY>" in entry["error"]
+    assert "Error calling tool" in logs and _ENV_KEY not in logs
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ELEVENLABS_API_KEY", "ELEVEN_API_KEY", "FAL_KEY", "SUNO_API_KEY",
+        "OPENAI_API_KEY", "ENLACE_SIGNING_KEY", "REELEE_MCP_DOWNLOAD_SECRET",
+        "SHARED_PW_PDF_TOOLS", "GITHUB_TOKEN", "DB_PASSWORD", "fal_key",
+    ],
+)
+def test_env_credentials_are_recognised_by_name(monkeypatch, name):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {})
+    monkeypatch.setenv(name, _ENV_KEY)
+
+    async def _call(ctx):
+        raise RuntimeError(f"401: bad key {_ENV_KEY}")
+
+    entry, raised = _failing_call({}, _call)
+    assert _ENV_KEY not in entry["error"] and _ENV_KEY not in str(raised)
+    # Windows upper-cases environment variable names.
+    assert f"<redacted:env:{name}>".lower() in entry["error"].lower()
+
+
+@pytest.mark.parametrize(
+    "name", ["HOME", "PWD", "OLDPWD", "CONNECTOR_ISSUER", "KEYBOARD_LAYOUT", "MONKEY"]
+)
+def test_other_env_vars_are_left_alone(monkeypatch, name):
+    value = "/srv/some/ordinary/value"
+    monkeypatch.setenv(name, value)
+    redact = mw_mod.secret_redactor(headers=dict)
+    assert redact(f"failed in {value}") == f"failed in {value}"
+
+
+def test_env_names_adds_a_secret_the_pattern_misses(monkeypatch):
+    monkeypatch.setenv("SUNO_CALLBACK_URL", "https://hooks.example/abcdef123")
+    redact = mw_mod.secret_redactor(headers=dict, env_names=["SUNO_CALLBACK_URL"])
+    assert redact("posted to https://hooks.example/abcdef123") == (
+        "posted to <redacted:env:SUNO_CALLBACK_URL>"
+    )
+
+
+def test_short_env_values_are_left_alone(monkeypatch):
+    monkeypatch.setenv("FEATURE_KEY", "on")
+    assert mw_mod.secret_redactor(headers=dict)("turned on") == "turned on"
+
+
+def test_headers_and_env_redact_in_one_pass_longest_first():
+    """A caller key that is a substring of the server key must not leave the rest
+    of the server key behind (and vice versa)."""
+    inner, outer = "abcdefgh12", "XYZ-abcdefgh12-SERVER"
+    redact = mw_mod.secret_redactor(
+        headers=lambda: {"x-fal-key": inner}, environ=lambda: {"FAL_KEY": outer}
+    )
+    assert redact(f"{outer} / {inner}") == (
+        "<redacted:env:FAL_KEY> / <redacted:x-fal-key>"
+    )
+
+
+def test_request_secret_redactor_still_ignores_the_environment(monkeypatch):
+    monkeypatch.setenv("FAL_KEY", _ENV_KEY)
+    redact = mw_mod.request_secret_redactor(headers=dict)
+    assert redact(_ENV_KEY) == _ENV_KEY
+
+
+def test_the_middleware_default_is_redact_secrets():
+    mw = MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
+    assert mw.redact is mw_mod.redact_secrets
+
+
+# ---------------------------------------------------------------------------
+# fastmcp's own traceback log (enlace_metering#3)
+# ---------------------------------------------------------------------------
+
+
+def _log_through_fastmcp(monkeypatch, emit):
+    import io
+    import logging
+
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})  # installs the filter
+    logger = logging.getLogger("fastmcp.server.server")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    try:
+        emit(logger)
+    finally:
+        logger.removeHandler(handler)
+    return out.getvalue()
+
+
+def test_a_logged_traceback_is_redacted(monkeypatch):
+    monkeypatch.setenv("FAL_KEY", _ENV_KEY)
+
+    def emit(logger):
+        try:
+            raise RuntimeError(f"fal 401: key {_ENV_KEY}")
+        except RuntimeError:
+            logger.exception("Error calling tool %r", "synthesize")
+
+    text = _log_through_fastmcp(monkeypatch, emit)
+    assert "Error calling tool 'synthesize'" in text  # message and args kept
+    assert "RuntimeError" in text and "<redacted:env:FAL_KEY>" in text
+    assert _ENV_KEY not in text
+
+
+def test_a_clean_record_is_untouched(monkeypatch):
+    import logging
+
+    def emit(logger):
+        try:
+            raise RuntimeError("nothing secret")
+        except RuntimeError:
+            logger.exception("Error calling tool %r", "synthesize")
+
+    text = _log_through_fastmcp(monkeypatch, emit)
+    assert "Error calling tool 'synthesize'" in text and "nothing secret" in text
+
+
+def test_a_failing_redactor_withholds_the_log_text(monkeypatch):
+    monkeypatch.setattr(mw_mod, "redact_secrets", lambda s: 1 / 0)
+
+    def emit(logger):
+        logger.error("key %s", _ENV_KEY)
+
+    text = _log_through_fastmcp(monkeypatch, emit)
+    assert _ENV_KEY not in text and mw_mod.REDACTION_FAILED in text
+
+
+def test_log_redaction_is_installed_once():
+    import logging
+
+    for _ in range(3):
+        MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
+    depth, factory = 0, logging.getLogRecordFactory()
+    assert getattr(factory, "_enlace_metering_redacting", False)
+    while getattr(factory, "_enlace_metering_redacting", False):
+        depth += 1
+        factory = factory.__closure__[0].cell_contents if factory.__closure__ else None
+        if depth > 5:
+            break
+    assert depth == 1
+
+
+def test_a_logger_created_after_the_middleware_is_redacted(monkeypatch):
+    """fastmcp 4.x creates the logger that writes the tool traceback lazily, after
+    the middleware exists: the redaction must not depend on creation order."""
+    import io
+    import logging
+    import uuid
+
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
+    monkeypatch.setenv("FAL_KEY", _ENV_KEY)
+    late = logging.getLogger(f"fastmcp.late_{uuid.uuid4().hex}")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    late.addHandler(handler)
+    try:
+        try:
+            raise RuntimeError(f"fal 401 {_ENV_KEY}")
+        except RuntimeError:
+            late.exception("Error calling tool")
+    finally:
+        late.removeHandler(handler)
+    assert "<redacted:env:FAL_KEY>" in out.getvalue() and _ENV_KEY not in out.getvalue()
+
+
+def test_redact_logs_can_name_the_connectors_own_namespace(monkeypatch):
+    import io
+    import logging
+
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"}, redact_logs=("braidio_t",))
+    monkeypatch.setenv("ELEVENLABS_API_KEY", _ENV_KEY)
+    logger = logging.getLogger("braidio_t.synth")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    logger.addHandler(handler)
+    try:
+        logger.error("provider said %s", _ENV_KEY)
+    finally:
+        logger.removeHandler(handler)
+    assert _ENV_KEY not in out.getvalue()
+
+
+def test_other_namespaces_are_untouched():
+    import logging
+
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
+    record = logging.getLogger("unrelated.lib").makeRecord(
+        "unrelated.lib", logging.INFO, __file__, 1, "x %s", ("y",), None
+    )
+    assert record.msg == "x %s" and record.args == ("y",)
+
+
+def test_a_key_inside_an_exception_group_is_not_reraised(monkeypatch):
+    import traceback
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    _in_flight_headers(monkeypatch, {})
+    monkeypatch.setenv("FAL_KEY", _ENV_KEY)
+
+    async def _call(ctx):
+        inner = RuntimeError("provider failed")
+        inner.add_note(f"key was {_ENV_KEY}")
+        raise ExceptionGroup("tool failed", [inner])
+
+    entry, raised = _failing_call({}, _call)
+    assert _ENV_KEY not in "".join(traceback.format_exception(raised))
+
+
+@pytest.mark.parametrize(
+    "quoted",
+    ["fal-id%3A" + "s3cr3t-part-0123", "s3cr3t-part-0123"],
+    ids=["url-encoded", "secret-segment"],
+)
+def test_transformed_forms_of_a_key_are_redacted(quoted):
+    redact = mw_mod.secret_redactor(
+        headers=dict, environ=lambda: {"FAL_KEY": "fal-id:s3cr3t-part-0123"}
+    )
+    assert "s3cr3t-part-0123" not in redact(f"401 for {quoted}")
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["SMTP_PASS", "GPG_PASSPHRASE", "SENTRY_DSN", "API_KEYS", "APP_SECRETS",
+     "GITHUB_PAT", "DB_CREDS", "SSH_PRIVATE_KEY", "PRIVATEKEY"],
+)
+def test_more_credential_names(monkeypatch, name):
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {name: _ENV_KEY})
+    assert _ENV_KEY not in redact(_ENV_KEY)
+
+
+@pytest.mark.parametrize(
+    "name", ["S3_KEY_PREFIX", "SSH_KEY_PATH", "TOKEN_URL", "AWS_ACCESS_KEY_ID", "KEY_FILE"]
+)
+def test_names_about_a_credential_are_not_one(name):
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {name: "uploads/area"})
+    assert redact("wrote uploads/area") == "wrote uploads/area"
+
+
+def test_a_password_in_any_url_is_redacted():
+    url = "postgres://app:hunter2hunter2@db.internal/main"
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {"DATABASE_URL": url})
+    assert "hunter2hunter2" not in redact(f"cannot connect: {url}")
