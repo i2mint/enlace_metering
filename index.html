@@ -1,169 +1,534 @@
-
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="./">
-<head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to enlace_metering’s documentation! &mdash; enlace_metering 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
 
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link rel="alternate" type="text/markdown" href="index.html.md">
+<link rel="describedby" href="llms.txt" type="text/markdown">
+<link rel="alternate" type="text/markdown" href="index.html.md">
+<link rel="describedby" href="llms.txt">
+    <title>enlace_metering &#8212; enlace_metering</title>
   
-      <script src="_static/jquery.js?v=5d32c60e"></script>
-      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=d45e8c67"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/toggleprompt.js?v=d7ede5d2"></script>
-      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
-      <script src="_static/copybutton.js?v=f281be69"></script>
-    <script src="_static/js/theme.js"></script>
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/epythet.css?v=3783b418" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+
+    <script src="_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=fd10adb8"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="enlace_metering" href="module_docs/enlace_metering.html" /> 
-</head>
+    <link rel="next" title="API reference" href="api.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.0.1" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
 
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
 
-          
-          
-          <a href="#" class="icon icon-home">
-            enlace_metering
-          </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering.html">enlace_metering</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering/ledger.html">enlace_metering.ledger</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering/middleware.html">enlace_metering.middleware</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering/policy.html">enlace_metering.policy</a></li>
-</ul>
 
-        </div>
-      </div>
-    </nav>
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">enlace_metering</a>
-      </nav>
+  
+    
+  
 
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Welcome to enlace_metering’s documentation!</li>
-      <li class="wy-breadcrumbs-aside">
-            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
-      </li>
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">enlace_metering</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api.html">
+    API reference
+  </a>
+</li>
+
   </ul>
-  <hr/>
-</div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section id="welcome-to-enlace-metering-s-documentation">
-<h1>Welcome to enlace_metering’s documentation!<a class="headerlink" href="#welcome-to-enlace-metering-s-documentation" title="Link to this heading"></a></h1>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering.html">enlace_metering</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.Decision"><code class="docutils literal notranslate"><span class="pre">Decision</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.GateRequest"><code class="docutils literal notranslate"><span class="pre">GateRequest</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.UsageLedger"><code class="docutils literal notranslate"><span class="pre">UsageLedger</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.UsageQuery"><code class="docutils literal notranslate"><span class="pre">UsageQuery</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.balance_gate"><code class="docutils literal notranslate"><span class="pre">balance_gate()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.call_count_cap"><code class="docutils literal notranslate"><span class="pre">call_count_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.credit_cap"><code class="docutils literal notranslate"><span class="pre">credit_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.per_call_cap"><code class="docutils literal notranslate"><span class="pre">per_call_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.per_principal"><code class="docutils literal notranslate"><span class="pre">per_principal()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.require_all"><code class="docutils literal notranslate"><span class="pre">require_all()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.rolling_window_cap"><code class="docutils literal notranslate"><span class="pre">rolling_window_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.safe_key_component"><code class="docutils literal notranslate"><span class="pre">safe_key_component()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.safe_principal"><code class="docutils literal notranslate"><span class="pre">safe_principal()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering.html#enlace_metering.unlimited"><code class="docutils literal notranslate"><span class="pre">unlimited()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering/ledger.html">enlace_metering.ledger</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/ledger.html#enlace_metering.ledger.UsageLedger"><code class="docutils literal notranslate"><span class="pre">UsageLedger</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/ledger.html#enlace_metering.ledger.safe_key_component"><code class="docutils literal notranslate"><span class="pre">safe_key_component()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/ledger.html#enlace_metering.ledger.safe_principal"><code class="docutils literal notranslate"><span class="pre">safe_principal()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering/middleware.html">enlace_metering.middleware</a></li>
-<li class="toctree-l1"><a class="reference internal" href="module_docs/enlace_metering/policy.html">enlace_metering.policy</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.Decision"><code class="docutils literal notranslate"><span class="pre">Decision</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.GatePolicy"><code class="docutils literal notranslate"><span class="pre">GatePolicy</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.GateRequest"><code class="docutils literal notranslate"><span class="pre">GateRequest</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.UsageQuery"><code class="docutils literal notranslate"><span class="pre">UsageQuery</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.balance_gate"><code class="docutils literal notranslate"><span class="pre">balance_gate()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.call_count_cap"><code class="docutils literal notranslate"><span class="pre">call_count_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.credit_cap"><code class="docutils literal notranslate"><span class="pre">credit_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.per_call_cap"><code class="docutils literal notranslate"><span class="pre">per_call_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.per_principal"><code class="docutils literal notranslate"><span class="pre">per_principal()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.require_all"><code class="docutils literal notranslate"><span class="pre">require_all()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.rolling_window_cap"><code class="docutils literal notranslate"><span class="pre">rolling_window_cap()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="module_docs/enlace_metering/policy.html#enlace_metering.policy.unlimited"><code class="docutils literal notranslate"><span class="pre">unlimited()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</div>
-</section>
-<section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
-<ul class="simple">
-<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
-<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
-<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
-</ul>
-<p>Release: 0.0.1</p>
-<p>Last change: Aug 07, 2026</p>
-</section>
-
-
-           </div>
-          </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="module_docs/enlace_metering.html" class="btn btn-neutral float-right" title="enlace_metering" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+</nav></div>
+      
     </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
 
-  <hr/>
-
-  <div role="contentinfo">
-    <p></p>
-  </div>
-
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
-
-</footer>
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
         </div>
-      </div>
-    </section>
-  </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
+      
+      
+        <div class="navbar-item">
 
-</body>
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/enlace_metering" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button type="button" class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api.html">
+    API reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/enlace_metering" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <!-- generated by epythet -->
+<section id="enlace-metering">
+<h1>enlace_metering<a class="headerlink" href="#enlace-metering" title="Link to this heading">#</a></h1>
+<p>Usage tracking <strong>and</strong> credit/quota access-gating for <a class="reference external" href="https://github.com/i2mint/enlace">enlace</a> MCP connectors — the platform’s “usage &amp; access-policy” layer, sibling to <code class="docutils literal notranslate"><span class="pre">enlace_auth</span></code> (identity) and <code class="docutils literal notranslate"><span class="pre">enlace_connector</span></code> (deploy).</p>
+<p>Whether a principal may use a resource is a <strong>strategy</strong> (a pure function), and <em>recording</em> what they spent is a <strong>separate</strong> concern from <em>deciding</em> whether to let them. That separation is the core design principle (see Research below).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">enlace_metering</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">em</span>
+
+<span class="c1"># 1. record (the meter) — a durable ledger over any MutableMapping (dict here; a</span>
+<span class="c1">#    dol file store in prod, growing to s3dol/sqldol untouched).</span>
+<span class="n">ledger</span> <span class="o">=</span> <span class="n">em</span><span class="o">.</span><span class="n">UsageLedger</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="p">{})</span>
+
+<span class="c1"># 2. gate (the strategy) — parameterized credit formulas, composable.</span>
+<span class="n">policy</span> <span class="o">=</span> <span class="n">em</span><span class="o">.</span><span class="n">per_principal</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">"owner@example.com"</span><span class="p">:</span> <span class="n">em</span><span class="o">.</span><span class="n">unlimited</span><span class="p">()},</span>          <span class="c1"># owner: no cap</span>
+    <span class="n">default</span><span class="o">=</span><span class="n">em</span><span class="o">.</span><span class="n">require_all</span><span class="p">(</span>                          <span class="c1"># everyone else:</span>
+        <span class="n">em</span><span class="o">.</span><span class="n">per_call_cap</span><span class="p">(</span><span class="mf">2.00</span><span class="p">),</span>                       <span class="c1">#   ≤ $2 per call, AND</span>
+        <span class="n">em</span><span class="o">.</span><span class="n">credit_cap</span><span class="p">(</span><span class="mf">20.00</span><span class="p">,</span> <span class="n">period</span><span class="o">=</span><span class="s2">"month"</span><span class="p">),</span>        <span class="c1">#   ≤ $20 / calendar month</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># 3. enforce (the glue) — one FastMCP middleware over EVERY tool call, fail-closed.</span>
+<span class="c1">#    (needs `pip install enlace_metering[mcp]`)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enlace_metering</span><span class="w"> </span><span class="kn">import</span> <span class="n">MeteringMiddleware</span>
+<span class="n">mw</span> <span class="o">=</span> <span class="n">MeteringMiddleware</span><span class="p">(</span><span class="n">ledger</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">,</span> <span class="n">allowed</span><span class="o">=</span><span class="p">{</span><span class="s2">"owner@example.com"</span><span class="p">})</span>
+<span class="c1"># app = py2mcp.http.mk_http_app(refs, auth=AUTH, middleware=[mw], stateless_http=True)</span>
+</pre></div>
+</div>
+<section id="why-the-three-concerns">
+<h2>Why (the three concerns)<a class="headerlink" href="#why-the-three-concerns" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Concern</p></th>
+<th class="head"><p>Where</p></th>
+<th class="head"><p>Shape</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Enforce</strong> — may this call proceed?</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">policy</span></code></p></td>
+<td><p>pure <code class="docutils literal notranslate"><span class="pre">GatePolicy</span> <span class="pre">=</span> <span class="pre">(GateRequest)</span> <span class="pre">-&gt;</span> <span class="pre">Decision</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Record</strong> — what did it cost?</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ledger</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">UsageLedger</span></code> over a <code class="docutils literal notranslate"><span class="pre">MutableMapping</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Glue</strong> — identity + gate + write-ahead</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">middleware</span></code> (<code class="docutils literal notranslate"><span class="pre">[mcp]</span></code>)</p></td>
+<td><p>a FastMCP <code class="docutils literal notranslate"><span class="pre">Middleware</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The gate runs <strong>before</strong> the ledger sees the event — enforcement is a distinct layer from billing. The core (<code class="docutils literal notranslate"><span class="pre">policy</span></code> + <code class="docutils literal notranslate"><span class="pre">ledger</span></code>) is <strong>dependency-free</strong> and unit-testable against a <code class="docutils literal notranslate"><span class="pre">dict</span></code>; only the middleware needs <code class="docutils literal notranslate"><span class="pre">fastmcp</span></code>.</p>
+</section>
+<section id="policies-the-strategy-library">
+<h2>Policies (the strategy library)<a class="headerlink" href="#policies-the-strategy-library" title="Link to this heading">#</a></h2>
+<p>All are constructors returning a <code class="docutils literal notranslate"><span class="pre">GatePolicy</span></code>; compose with <code class="docutils literal notranslate"><span class="pre">require_all</span></code> / <code class="docutils literal notranslate"><span class="pre">per_principal</span></code>.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">unlimited()</span></code> — always allow (record only).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">credit_cap(usd_per_period,</span> <span class="pre">period=&quot;month&quot;)</span></code> — prepaid/metered cap per calendar period (resets on the boundary).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rolling_window_cap(usd,</span> <span class="pre">window=timedelta(days=1))</span></code> — sliding-window cap (rate control).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">per_call_cap(usd)</span></code> — reject a single call whose <em>estimated</em> cost exceeds <code class="docutils literal notranslate"><span class="pre">usd</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">call_count_cap(n,</span> <span class="pre">period=&quot;day&quot;)</span></code> — count-based quota (no cost model needed).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">balance_gate(get_balance)</span></code> — true prepaid credits: deny when a host-managed balance can’t cover the call.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">per_principal({email:</span> <span class="pre">policy},</span> <span class="pre">default=…)</span></code> — tiered plans (owner unlimited, others capped).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">require_all(*policies)</span></code> — AND / most-restrictive (first denial wins).</p></li>
+</ul>
+<p>Forward-looking gating (deny a call that <em>would</em> cross a cap) needs a proposed-cost estimate — pass <code class="docutils literal notranslate"><span class="pre">estimate_cost=(tool,</span> <span class="pre">args)</span> <span class="pre">-&gt;</span> <span class="pre">usd|None</span></code> to the middleware. Without one, caps block on already-accumulated usage (“you’ve hit your limit”).</p>
+</section>
+<section id="ledger-layout">
+<h2>Ledger layout<a class="headerlink" href="#ledger-layout" title="Link to this heading">#</a></h2>
+<p>Keyed <code class="docutils literal notranslate"><span class="pre">{principal}/{YYYY-MM}/{id}.json</span></code> so “what did X spend this month” is a cheap subtree scan. The middleware writes <strong>write-ahead</strong> (<code class="docutils literal notranslate"><span class="pre">started</span></code> → <code class="docutils literal notranslate"><span class="pre">done</span></code>/<code class="docutils literal notranslate"><span class="pre">error</span></code> under one id): a costed call never spends on a shared key without a recoverable trace. The store is injected, so it grows from a local <code class="docutils literal notranslate"><span class="pre">dol.Files</span></code> to <code class="docutils literal notranslate"><span class="pre">s3dol</span></code>/<code class="docutils literal notranslate"><span class="pre">sqldol</span></code> without touching callers.</p>
+</section>
+<section id="caller-secrets-in-error-text">
+<h2>Caller secrets in error text<a class="headerlink" href="#caller-secrets-in-error-text" title="Link to this heading">#</a></h2>
+<p>A failed call’s error is recorded in the ledger and re-raised to the client, and a provider can quote the caller’s bring-your-own key back in it (ElevenLabs does on a 401). So the middleware passes that text through a <strong>redactor</strong> first, and re-raises a scrubbed stand-in (same type where it can be rebuilt, else <code class="docutils literal notranslate"><span class="pre">ToolError</span></code>) with no chain back to the dirty original.</p>
+<p>The default, <code class="docutils literal notranslate"><span class="pre">redact_request_secrets</span></code>, replaces the value of every in-flight request header named like a credential (<code class="docutils literal notranslate"><span class="pre">Authorization</span></code>, <code class="docutils literal notranslate"><span class="pre">X-&lt;Provider&gt;-Key</span></code>, <code class="docutils literal notranslate"><span class="pre">-Token</span></code>, <code class="docutils literal notranslate"><span class="pre">-Secret</span></code>) with <code class="docutils literal notranslate"><span class="pre">&lt;redacted:{header}&gt;</span></code>, so a new BYO-key header is covered without configuration. Secrets that arrive some other way need their own: <code class="docutils literal notranslate"><span class="pre">MeteringMiddleware(ledger,</span> <span class="pre">redact=my_redactor)</span></code>, where <code class="docutils literal notranslate"><span class="pre">my_redactor(text)</span> <span class="pre">-&gt;</span> <span class="pre">text</span></code>; build a header-based one with other rules via <code class="docutils literal notranslate"><span class="pre">request_secret_redactor(header_pattern=...,</span> <span class="pre">min_chars=...)</span></code>. If the redactor raises, the error text is withheld rather than recorded unredacted.</p>
+</section>
+<section id="install">
+<h2>Install<a class="headerlink" href="#install" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>enlace_metering<span class="w">           </span><span class="c1"># core: policy + ledger (no deps)</span>
+pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'enlace_metering[mcp]'</span><span class="w">    </span><span class="c1"># + the FastMCP middleware</span>
+</pre></div>
+</div>
+</section>
+<section id="research-how-usage-based-metering-quotas-are-built">
+<h2>Research — how usage-based metering / quotas are built<a class="headerlink" href="#research-how-usage-based-metering-quotas-are-built" title="Link to this heading">#</a></h2>
+<p>The design follows the settled industry pattern: <strong>entitlement/quota enforcement is a
+separate layer from the billing meter</strong> — enforcement decides <em>before</em> usage is
+recorded [1][2]. Common formulas this package parameterizes:</p>
+<ul class="simple">
+<li><p><strong>Prepaid credits / credit blocks</strong> — buy a bundle, burn down; blocks carry their own
+amount + expiry with priority burn-down [3][4]. → <code class="docutils literal notranslate"><span class="pre">credit_cap</span></code>, <code class="docutils literal notranslate"><span class="pre">balance_gate</span></code>.</p></li>
+<li><p><strong>Metered caps + real-time balance / grace</strong> — per-feature quotas with live balance
+tracking [1][5]. → <code class="docutils literal notranslate"><span class="pre">credit_cap</span></code>, <code class="docutils literal notranslate"><span class="pre">call_count_cap</span></code>.</p></li>
+<li><p><strong>Token-bucket rate limiting</strong> — tokens replenish at a rate; a request costs N; deny
+if insufficient [2]. → <code class="docutils literal notranslate"><span class="pre">rolling_window_cap</span></code> (the sliding-window cousin).</p></li>
+</ul>
+<p>Keeping the decision a pure strategy (not baked into the middleware) is what lets a host
+swap “owner unlimited” for “prepaid credits” or “monthly cap” without touching the
+connector — the open-closed shape the enlace family favors.</p>
+<section id="references">
+<h3>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p>Lago. <em>How to architect billing systems to power usage-based pricing.</em> <a class="reference external" href="https://getlago.com/blog/architect-billing-systems">getlago.com/blog/architect-billing-systems</a></p></li>
+<li><p>OpenMeter. <em>Metering and billing for AI, API and DevOps.</em> <a class="reference external" href="https://github.com/openmeterio/openmeter">github.com/openmeterio/openmeter</a></p></li>
+<li><p>Kong. <em>Stop AI token overspend: prepaid credits in Konnect.</em> <a class="reference external" href="https://konghq.com/blog/product-releases/metering-billing-prepaid-credits">konghq.com/blog/product-releases/metering-billing-prepaid-credits</a></p></li>
+<li><p>Solvimon. <em>AI billing software built for tokens, credits, and inference pricing.</em> <a class="reference external" href="https://www.solvimon.com/blog/6-ai-billing-software-platforms-built-for-credits">solvimon.com/blog/6-ai-billing-software-platforms-built-for-credits</a></p></li>
+<li><p>Zuora. <em>Metered billing: architecture, metrics, and monetization models.</em> <a class="reference external" href="https://www.zuora.com/glossary/metered-billing/">zuora.com/glossary/metered-billing</a></p></li>
+</ol>
+<p class="epythet-aggregates">This documentation as a single file: <a href="enlace_metering.md">enlace_metering.md</a> (Markdown, for agents).</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+</section>
+
+<p class="epythet-provenance" style="font-size:.8em;opacity:.65;margin-top:2.5em;text-align:right">built 2026-10-12 21:22 UTC from <a href="https://github.com/i2mint/enlace_metering/commit/3098f568346fe45667390f13d1e2d7dbc01dfd46">3098f56</a> (main) · enlace_metering 0.0.1 · <a href="about-this-build.html">about this build</a></p>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="api.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">API reference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-the-three-concerns">Why (the three concerns)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#policies-the-strategy-library">Policies (the strategy library)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ledger-layout">Ledger layout</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#caller-secrets-in-error-text">Caller secrets in error text</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install">Install</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#research-how-usage-based-metering-quotas-are-built">Research — how usage-based metering / quotas are built</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="_sources/index.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
 </html>

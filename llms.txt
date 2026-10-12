@@ -1,0 +1,21 @@
+# enlace_metering
+
+> Usage tracking + credit/quota access-gating for enlace MCP connectors (strategy-pattern policies + a durable ledger)
+
+
+## Pages
+
+- [enlace_metering](index.html.md): Usage tracking &#42;&#42;and&#42;&#42; credit/quota access-gating for enlace MCP connectors — the platform’s “usage ...
+- [API reference](api.html.md): | &#96;enlace_metering&#96;   | enlace_metering — usage tracking + credit/quota access-gating for enlace con...
+- [enlace_metering](_autosummary/enlace_metering.html.md): enlace_metering — usage tracking + credit/quota access-gating for enlace connectors.
+- [enlace_metering.ledger](_autosummary/enlace_metering.ledger.html.md): Durable usage ledger — the &#42;recording&#42; half of metering.
+- [enlace_metering.policy](_autosummary/enlace_metering.policy.html.md): Access-gating policies — the &#42;enforcement&#42; half of metering (deny before spend).
+- [About this build](about-this-build.html.md): This documentation was built on &#42;&#42;2026-10-12 21:22 UTC&#42;&#42; from commit &lt;a href="https://github.com/i2m...
+
+## Optional
+
+- [enlace_metering.md](enlace_metering.md): Complete documentation in a single file.
+
+## Build
+
+- [build_info.json](build_info.json): build provenance (commit, version, tool versions, whether the docs match the package)

@@ -1,4 +1,0 @@
-enlace_metering.ledger
-======================
-.. automodule:: enlace_metering.ledger
-   :members:

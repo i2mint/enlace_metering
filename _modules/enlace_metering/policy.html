@@ -1,83 +1,703 @@
-
-
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="../../">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>enlace_metering.policy &mdash; enlace_metering 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
-      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="alternate" type="text/markdown" href="policy.html.md">
+<link rel="describedby" href="../../llms.txt" type="text/markdown">
+    <title>enlace_metering.policy &#8212; enlace_metering</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/epythet.css?v=3783b418" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
+
+    <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=fd10adb8"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = "pre.mermaid {\n    /* Same as .mermaid-container > pre */\n    display: block;\n    width: 100%;\n}\n\npre.mermaid > svg {\n    /* Same as .mermaid-container > pre > svg */\n    height: 500px;\n    width: 100%;\n    max-width: 100% !important;\n}";
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = ".mermaid-container {\n    position: relative;\n    display: flex;\n    flex-direction: row;\n    width: 100%;\n}\n\n.mermaid-container > pre {\n    display: block;\n    width: 100%;\n}\n\n.mermaid-container > pre > svg {\n    height: 500px;\n    width: 100%;\n    max-width: 100% !important;\n}\n\n.mermaid-fullscreen-btn {\n    position: absolute;\n    width: 28px;\n    height: 28px;\n    background: rgba(255, 255, 255, 0.95);\n    border: 1px solid rgba(0, 0, 0, 0.3);\n    border-radius: 4px;\n    cursor: pointer;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    transition: all 0.2s;\n    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);\n    font-size: 14px;\n    line-height: 1;\n    padding: 0;\n    color: #333;\n}\n\n.mermaid-fullscreen-btn:hover {\n    opacity: 100% !important;\n    background: rgba(255, 255, 255, 1);\n    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);\n    transform: scale(1.1);\n}\n\n.mermaid-fullscreen-btn.dark-theme {\n    background: rgba(50, 50, 50, 0.95);\n    border: 1px solid rgba(255, 255, 255, 0.3);\n    color: #e0e0e0;\n}\n\n.mermaid-fullscreen-btn.dark-theme:hover {\n    background: rgba(60, 60, 60, 1);\n    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);\n}\n\n.mermaid-fullscreen-modal {\n    display: none;\n    position: fixed !important;\n    top: 0 !important;\n    left: 0 !important;\n    width: 95vw;\n    height: 100vh;\n    background: rgba(255, 255, 255, 0.98);\n    z-index: 9999;\n    padding: 20px;\n    overflow: auto;\n}\n\n.mermaid-fullscreen-modal.dark-theme {\n    background: rgba(0, 0, 0, 0.98);\n}\n\n.mermaid-fullscreen-modal.active {\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen {\n    position: relative;\n    width: 95vw;\n    height: 90vh;\n    max-width: 95vw;\n    max-height: 90vh;\n    background: white;\n    border-radius: 8px;\n    padding: 20px;\n    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);\n    overflow: auto;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen.dark-theme {\n    background: #1a1a1a;\n    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);\n}\n\n.mermaid-container-fullscreen pre.mermaid {\n    width: 100%;\n    height: 100%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.mermaid-container-fullscreen .mermaid svg {\n    height: 100% !important;\n    width: 100% !important;\n    cursor: grab;\n}\n\n.mermaid-fullscreen-close {\n    position: fixed !important;\n    top: 20px !important;\n    right: 20px !important;\n    width: 40px;\n    height: 40px;\n    background: rgba(255, 255, 255, 0.95);\n    border: 1px solid rgba(0, 0, 0, 0.2);\n    border-radius: 50%;\n    cursor: pointer;\n    z-index: 10000;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);\n    transition: all 0.2s;\n    font-size: 24px;\n    line-height: 1;\n    color: #333;\n}\n\n.mermaid-fullscreen-close:hover {\n    background: white;\n    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);\n    transform: scale(1.1);\n}\n\n.mermaid-fullscreen-close.dark-theme {\n    background: rgba(50, 50, 50, 0.95);\n    border: 1px solid rgba(255, 255, 255, 0.2);\n    color: #e0e0e0;\n}\n\n.mermaid-fullscreen-close.dark-theme:hover {\n    background: rgba(60, 60, 60, 1);\n    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);\n}\n\n.mermaid-fullscreen-modal .mermaid-fullscreen-btn {\n    display: none !important;\n}";
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+let _lazyObserver = null;
+let _renderQueue = Promise.resolve();
+let closeModal = () => {};
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal?.classList.contains('active')) {
+        closeModal();
+    }
+});
+
+// Apply d3 zoom to each SVG. Idempotent: an SVG already wrapped is skipped,
+// so this is safe to call both for the initial batch and for diagrams that
+// render lazily once they become visible.
+const addZoomToSvgs = (svgs) => {
+    svgs.each(function() {
+        if (this.getAttribute('data-zoom-applied') === 'true') return;
+        var svg = d3.select(this);
+        svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+        var inner = svg.select("g");
+        var zoom = d3.zoom().on("zoom", function(event) {
+            inner.attr("transform", event.transform);
+        });
+        svg.call(zoom);
+        this.setAttribute('data-zoom-applied', 'true');
+    });
+};
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        // Disconnect any previous lazy rendering observer
+        if (_lazyObserver) {
+            _lazyObserver.disconnect();
+            _lazyObserver = null;
+        }
+
+        all_mermaids.forEach((el) => {
+            el.removeAttribute('data-mermaid-deferred');
+            el.removeAttribute('data-mermaid-render-failed');
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+
+        // Separate visible and hidden elements. Mermaid's layout engine measures
+        // text dimensions via the DOM, which fails for elements hidden by a parent
+        // (e.g., Reveal.js non-active slides, sphinx-design unopened tabs),
+        // producing broken SVGs. Render visible elements now, defer hidden ones.
+        const visible = [];
+        const hidden = [];
+        all_mermaids.forEach((el) => {
+            // offsetParent is null for display:none ancestors.
+            // getClientRects().length > 0 catches position:fixed elements
+            // (which also have null offsetParent but are still visible).
+            if (el.offsetParent !== null || el.getClientRects().length > 0) {
+                visible.push(el);
+            } else {
+                hidden.push(el);
+                el.setAttribute('data-mermaid-deferred', 'true');
+            }
+        });
+
+        if (visible.length > 0) {
+            try {
+                await mermaid.run({ nodes: visible });
+            } catch (e) {
+                console.error("Mermaid rendering failed:", e);
+            }
+        }
+
+        // Lazily render hidden elements when they become visible.
+        // Uses a promise chain (_renderQueue) to serialize rendering,
+        // since IntersectionObserver may report multiple entries at once
+        // and mermaid.run() is not safe to call concurrently.
+        if (hidden.length > 0) {
+            if (typeof IntersectionObserver === 'undefined') {
+                console.warn("IntersectionObserver not available; hidden mermaid diagrams will not render.");
+            } else {
+                _renderQueue = Promise.resolve();
+                _lazyObserver = new IntersectionObserver((entries) => {
+                    for (const entry of entries) {
+                        if (entry.isIntersecting && entry.target.getAttribute("data-processed") !== "true") {
+                            _lazyObserver.unobserve(entry.target);
+                            const el = entry.target;
+                            _renderQueue = _renderQueue.then(async () => {
+                                try {
+                                    await mermaid.run({ nodes: [el] });
+                                    el.removeAttribute('data-mermaid-deferred');
+                                    // Apply zoom to the now-rendered diagram, matching
+                                    // the decoration visible diagrams receive.
+                                    if (false) {
+                                        addZoomToSvgs(d3.selectAll("").select(function() {
+                                            return this.querySelector("svg");
+                                        }));
+                                    }
+                                } catch (e) {
+                                    console.error("Mermaid deferred rendering failed:", e);
+                                    el.removeAttribute('data-mermaid-deferred');
+                                    el.setAttribute('data-mermaid-render-failed', 'true');
+                                }
+                            });
+                        }
+                    }
+                });
+                hidden.forEach((el) => _lazyObserver.observe(el));
+            }
+        }
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    // Exclude deferred (hidden) and render-failed elements from completion checks
+    const mermaids_active = document.querySelectorAll(".mermaid:not([data-mermaid-deferred]):not([data-mermaid-render-failed])");
+    const mermaids_processed = document.querySelectorAll(".mermaid:not([data-mermaid-deferred]):not([data-mermaid-render-failed])[data-processed='true']");
+
+    if (false) {
+        const mermaids_to_add_zoom = 0 === -1 ? mermaids_active.length : 0;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("").select(function() {
+                return this.querySelector("svg");
+            });
+            // Wait until every active (visible) diagram has rendered. Deferred
+            // diagrams are excluded, so a fixed d3_node_count that counts a
+            // hidden diagram no longer loops forever waiting for its SVG.
+            if(mermaids_active.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            }
+            addZoomToSvgs(svgs);
+        }
+    } else if(mermaids_active.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if (!true) return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = "\u26f6";
+        fullscreenBtn.style.opacity = "50%";
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scrollX, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.display = 'block';
+
+                if (false) {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+
+
+const load = async () => {
+    initStyles();
+
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...{"startOnLoad": false},
+                ...{ darkMode: darkTheme, theme: darkTheme ? "dark" : "default" },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...{"startOnLoad": false},
+    ...{ darkMode: darkTheme, theme: darkTheme ? "dark" : "default" },
+    }
+);
+
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/enlace_metering/policy';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.0.1" />
+  
+    
+    <script src="../../_static/searchtools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
 
   
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
-      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../_static/toggleprompt.js?v=d7ede5d2"></script>
-      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
-      <script src="../../_static/copybutton.js?v=f281be69"></script>
-    <script src="../../_static/js/theme.js"></script>
-    <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
-</head>
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
 
-<body class="wy-body-for-nav"> 
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
-
-          
-          
-          <a href="../../index.html" class="icon icon-home">
-            enlace_metering
-          </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
 </div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering.html">enlace_metering</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/ledger.html">enlace_metering.ledger</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/middleware.html">enlace_metering.middleware</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../module_docs/enlace_metering/policy.html">enlace_metering.policy</a></li>
-</ul>
 
-        </div>
-      </div>
-    </nav>
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button type="button" class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../../index.html">enlace_metering</a>
-      </nav>
+  
+    
+  
 
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
-          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">enlace_metering.policy</li>
-      <li class="wy-breadcrumbs-aside">
-      </li>
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">enlace_metering</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api.html">
+    API reference
+  </a>
+</li>
+
   </ul>
-  <hr/>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/enlace_metering" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button type="button" class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
 </div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../api.html">
+    API reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button type="button" class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button type="button" class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/i2mint/enlace_metering" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">enlace_metering.policy</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
   <h1>Source code for enlace_metering.policy</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Access-gating policies — the *enforcement* half of metering (deny before spend).</span>
+<span></span><span class="sd">"""Access-gating policies — the *enforcement* half of metering (deny before spend).</span>
 
 <span class="sd">Usage-based systems separate **enforcement** (may this call proceed?) from</span>
 <span class="sd">**billing/recording** (what did it cost?). The gate runs *before* the ledger ever</span>
@@ -96,7 +716,7 @@
 <span class="sd">Progressive disclosure: default to :func:`unlimited` or a single</span>
 <span class="sd">:func:`credit_cap`; compose with :func:`require_all` / :func:`per_principal` for</span>
 <span class="sd">tiered plans (e.g. the owner unlimited, everyone else a monthly cap).</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -106,13 +726,13 @@
 
 
 <div class="viewcode-block" id="UsageQuery">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.UsageQuery">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.UsageQuery">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">UsageQuery</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The read side a policy needs: a principal&#39;s spend / call-count since a time.</span>
+<span class="w">    </span><span class="sd">"""The read side a policy needs: a principal's spend / call-count since a time.</span>
 
 <span class="sd">    :class:`~enlace_metering.ledger.UsageLedger` implements this; a test can pass any</span>
 <span class="sd">    object with these two methods. ``since`` is timezone-aware UTC.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">spend_since</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span> <span class="o">...</span>
 
@@ -121,16 +741,16 @@
 
 
 <div class="viewcode-block" id="Decision">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.Decision">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.Decision">[docs]</a>
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Decision</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A gate outcome. ``allow`` is the verdict; ``reason`` is a human-facing</span>
+<span class="w">    </span><span class="sd">"""A gate outcome. ``allow`` is the verdict; ``reason`` is a human-facing</span>
 <span class="sd">    explanation (surfaced to the caller on denial, and useful as a remaining-budget</span>
 <span class="sd">    note on approval). ``remaining_usd`` is set by cap policies when meaningful.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">allow</span><span class="p">:</span> <span class="nb">bool</span>
-    <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
     <span class="n">remaining_usd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>  <span class="c1"># so `if policy(req): ...` reads naturally</span>
@@ -139,17 +759,17 @@
 
 
 <div class="viewcode-block" id="GateRequest">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.GateRequest">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.GateRequest">[docs]</a>
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">GateRequest</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Everything a policy needs to decide one call.</span>
+<span class="w">    </span><span class="sd">"""Everything a policy needs to decide one call.</span>
 
 <span class="sd">    ``ledger`` is the usage read-side (:class:`UsageQuery`); ``now`` is injected</span>
 <span class="sd">    (timezone-aware UTC) so policies are deterministic + testable; ``proposed_cost_usd``</span>
-<span class="sd">    is this call&#39;s *estimated* cost when the host can estimate it (else ``None`` — the</span>
-<span class="sd">    gate then blocks on already-accumulated usage, the &quot;you&#39;ve hit your limit&quot; model);</span>
+<span class="sd">    is this call's *estimated* cost when the host can estimate it (else ``None`` — the</span>
+<span class="sd">    gate then blocks on already-accumulated usage, the "you've hit your limit" model);</span>
 <span class="sd">    ``tool`` is the operation name (for logging / per-tool policies).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">principal</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">ledger</span><span class="p">:</span> <span class="n">UsageQuery</span>
@@ -165,71 +785,71 @@
 <span class="n">GatePolicy</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">GateRequest</span><span class="p">],</span> <span class="n">Decision</span><span class="p">]</span>
 
 
-<span class="n">_PERIODS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;hour&quot;</span><span class="p">,</span> <span class="s2">&quot;day&quot;</span><span class="p">,</span> <span class="s2">&quot;week&quot;</span><span class="p">,</span> <span class="s2">&quot;month&quot;</span><span class="p">)</span>
+<span class="n">_PERIODS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"hour"</span><span class="p">,</span> <span class="s2">"day"</span><span class="p">,</span> <span class="s2">"week"</span><span class="p">,</span> <span class="s2">"month"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_period_start</span><span class="p">(</span><span class="n">now</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start of the calendar ``period`` containing ``now`` (UTC).</span>
+<span class="w">    </span><span class="sd">"""Start of the calendar ``period`` containing ``now`` (UTC).</span>
 
 <span class="sd">    ``month`` = first of the month; ``week`` = Monday; ``day`` = midnight; ``hour`` =</span>
-<span class="sd">    top of the hour. A *calendar* boundary (not a rolling window — that&#39;s</span>
+<span class="sd">    top of the hour. A *calendar* boundary (not a rolling window — that's</span>
 <span class="sd">    :func:`rolling_window_cap`), so a monthly cap resets on the 1st.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">period</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_PERIODS</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;period must be one of </span><span class="si">{</span><span class="n">_PERIODS</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">period</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"period must be one of </span><span class="si">{</span><span class="n">_PERIODS</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">period</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="n">midnight</span> <span class="o">=</span> <span class="n">now</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">&quot;hour&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">"hour"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">now</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">minute</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">second</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">&quot;day&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">"day"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">midnight</span>
-    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">&quot;week&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">period</span> <span class="o">==</span> <span class="s2">"week"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">midnight</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">now</span><span class="o">.</span><span class="n">weekday</span><span class="p">())</span>
     <span class="k">return</span> <span class="n">midnight</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">day</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># month</span>
 
 
 <div class="viewcode-block" id="unlimited">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.unlimited">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.unlimited">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">unlimited</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Always allow — the meter still records, but nothing is gated (e.g. the owner).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Always allow — the meter still records, but nothing is gated (e.g. the owner)."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;no usage limit&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">"no usage limit"</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">policy</span></div>
 
 
 
 <div class="viewcode-block" id="credit_cap">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.credit_cap">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">credit_cap</span><span class="p">(</span><span class="n">usd_per_period</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;month&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny once spend in the current calendar ``period`` reaches ``usd_per_period``.</span>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.credit_cap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">credit_cap</span><span class="p">(</span><span class="n">usd_per_period</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"month"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Deny once spend in the current calendar ``period`` reaches ``usd_per_period``.</span>
 
 <span class="sd">    The prepaid-credit / metered-cap formula: a principal gets ``usd_per_period`` of</span>
 <span class="sd">    spend per calendar period (default monthly), resetting on the boundary. When the</span>
 <span class="sd">    host supplies ``proposed_cost_usd`` the check is forward-looking (deny a call that</span>
 <span class="sd">    *would* cross the cap); otherwise it denies the next call once already at/over the</span>
-<span class="sd">    cap (&quot;you&#39;ve hit your limit&quot;).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    cap ("you've hit your limit").</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">usd_per_period</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;usd_per_period must be &gt;= 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"usd_per_period must be &gt;= 0"</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
         <span class="n">since</span> <span class="o">=</span> <span class="n">_period_start</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">now</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
         <span class="n">spent</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">ledger</span><span class="o">.</span><span class="n">spend_since</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="p">,</span> <span class="n">since</span><span class="p">)</span>
         <span class="n">proposed</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">proposed_cost_usd</span> <span class="ow">or</span> <span class="mf">0.0</span>
         <span class="n">remaining</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">usd_per_period</span> <span class="o">-</span> <span class="n">spent</span><span class="p">)</span>
-        <span class="c1"># Deny when the budget is exhausted (spent at/over the cap — the &quot;you&#39;ve hit</span>
-        <span class="c1"># your limit&quot; case, incl. proposed=None) OR when this call would cross it.</span>
+        <span class="c1"># Deny when the budget is exhausted (spent at/over the cap — the "you've hit</span>
+        <span class="c1"># your limit" case, incl. proposed=None) OR when this call would cross it.</span>
         <span class="k">if</span> <span class="n">spent</span> <span class="o">&gt;=</span> <span class="n">usd_per_period</span> <span class="ow">or</span> <span class="n">spent</span> <span class="o">+</span> <span class="n">proposed</span> <span class="o">&gt;</span> <span class="n">usd_per_period</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
                 <span class="kc">False</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">ly credit cap of $</span><span class="si">{</span><span class="n">usd_per_period</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> reached &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(spent $</span><span class="si">{</span><span class="n">spent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">ly credit cap of $</span><span class="si">{</span><span class="n">usd_per_period</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> reached "</span>
+                <span class="sa">f</span><span class="s2">"(spent $</span><span class="si">{</span><span class="n">spent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span>
                 <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
             <span class="kc">True</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;$</span><span class="si">{</span><span class="n">remaining</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> of $</span><span class="si">{</span><span class="n">usd_per_period</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> left this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"$</span><span class="si">{</span><span class="n">remaining</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> of $</span><span class="si">{</span><span class="n">usd_per_period</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> left this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
             <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -238,15 +858,15 @@
 
 
 <div class="viewcode-block" id="rolling_window_cap">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.rolling_window_cap">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.rolling_window_cap">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">rolling_window_cap</span><span class="p">(</span><span class="n">usd</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="n">timedelta</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny once spend in the trailing ``window`` reaches ``usd``.</span>
+<span class="w">    </span><span class="sd">"""Deny once spend in the trailing ``window`` reaches ``usd``.</span>
 
 <span class="sd">    A sliding window (e.g. ``$5`` per rolling 24h) rather than a calendar reset —</span>
 <span class="sd">    smoother rate control. Forward-looking when ``proposed_cost_usd`` is given.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">usd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;usd must be &gt;= 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"usd must be &gt;= 0"</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
         <span class="n">since</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">now</span> <span class="o">-</span> <span class="n">window</span>
@@ -256,13 +876,13 @@
         <span class="k">if</span> <span class="n">spent</span> <span class="o">&gt;=</span> <span class="n">usd</span> <span class="ow">or</span> <span class="n">spent</span> <span class="o">+</span> <span class="n">proposed</span> <span class="o">&gt;</span> <span class="n">usd</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
                 <span class="kc">False</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;rolling-window cap of $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2"> reached &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(spent $</span><span class="si">{</span><span class="n">spent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> in the last </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"rolling-window cap of $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2"> reached "</span>
+                <span class="sa">f</span><span class="s2">"(spent $</span><span class="si">{</span><span class="n">spent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> in the last </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span>
                 <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
             <span class="kc">True</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;$</span><span class="si">{</span><span class="n">remaining</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> left in this </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2"> window&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"$</span><span class="si">{</span><span class="n">remaining</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> left in this </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2"> window"</span><span class="p">,</span>
             <span class="n">remaining_usd</span><span class="o">=</span><span class="n">remaining</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -271,40 +891,40 @@
 
 
 <div class="viewcode-block" id="per_call_cap">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.per_call_cap">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.per_call_cap">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">per_call_cap</span><span class="p">(</span><span class="n">usd</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny a single call whose *estimated* cost exceeds ``usd``.</span>
+<span class="w">    </span><span class="sd">"""Deny a single call whose *estimated* cost exceeds ``usd``.</span>
 
 <span class="sd">    Needs ``proposed_cost_usd`` (the host must estimate); a call with no estimate is</span>
 <span class="sd">    allowed (nothing to compare). Pair with a period cap via :func:`require_all` to</span>
 <span class="sd">    bound both the per-call blast radius and the cumulative spend.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">usd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;usd must be &gt;= 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"usd must be &gt;= 0"</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
         <span class="n">proposed</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">proposed_cost_usd</span>
         <span class="k">if</span> <span class="n">proposed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">proposed</span> <span class="o">&gt;</span> <span class="n">usd</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
                 <span class="kc">False</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;this call&#39;s estimated $</span><span class="si">{</span><span class="n">proposed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> exceeds the &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;per-call cap of $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"this call's estimated $</span><span class="si">{</span><span class="n">proposed</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> exceeds the "</span>
+                <span class="sa">f</span><span class="s2">"per-call cap of $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;within the $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> per-call cap&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"within the $</span><span class="si">{</span><span class="n">usd</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> per-call cap"</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">policy</span></div>
 
 
 
 <div class="viewcode-block" id="call_count_cap">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.call_count_cap">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">call_count_cap</span><span class="p">(</span><span class="n">max_calls</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;day&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny once the principal has made ``max_calls`` in the current calendar ``period``.</span>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.call_count_cap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">call_count_cap</span><span class="p">(</span><span class="n">max_calls</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"day"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Deny once the principal has made ``max_calls`` in the current calendar ``period``.</span>
 
 <span class="sd">    A count-based quota (no cost model needed) — useful for free/rate-limited tools.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">max_calls</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;max_calls must be &gt;= 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"max_calls must be &gt;= 0"</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
         <span class="n">since</span> <span class="o">=</span> <span class="n">_period_start</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">now</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
@@ -312,10 +932,10 @@
         <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;=</span> <span class="n">max_calls</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
                 <span class="kc">False</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">ly call cap of </span><span class="si">{</span><span class="n">max_calls</span><span class="si">}</span><span class="s2"> reached (</span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">ly call cap of </span><span class="si">{</span><span class="n">max_calls</span><span class="si">}</span><span class="s2"> reached (</span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
-            <span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">max_calls</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">count</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">max_calls</span><span class="si">}</span><span class="s2"> calls left this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">max_calls</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">count</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">max_calls</span><span class="si">}</span><span class="s2"> calls left this </span><span class="si">{</span><span class="n">period</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">policy</span></div>
@@ -323,15 +943,15 @@
 
 
 <div class="viewcode-block" id="balance_gate">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.balance_gate">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.balance_gate">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">balance_gate</span><span class="p">(</span><span class="n">get_balance</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deny when a principal&#39;s prepaid balance can&#39;t cover the call.</span>
+<span class="w">    </span><span class="sd">"""Deny when a principal's prepaid balance can't cover the call.</span>
 
 <span class="sd">    ``get_balance(principal) -&gt; remaining_usd`` is host-supplied (a credit store).</span>
-<span class="sd">    Denies if the balance is non-positive, or (when estimable) below the call&#39;s</span>
+<span class="sd">    Denies if the balance is non-positive, or (when estimable) below the call's</span>
 <span class="sd">    ``proposed_cost_usd``. This is the true prepaid-credits model — burn-down lives in</span>
-<span class="sd">    the host&#39;s balance store; this only gates.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    the host's balance store; this only gates.</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
         <span class="n">balance</span> <span class="o">=</span> <span class="n">get_balance</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="p">)</span>
@@ -339,34 +959,34 @@
         <span class="k">if</span> <span class="n">balance</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">balance</span> <span class="o">&lt;</span> <span class="n">need</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
                 <span class="kc">False</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;insufficient credit: balance $</span><span class="si">{</span><span class="n">balance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;, need $</span><span class="si">{</span><span class="n">need</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">need</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="sa">f</span><span class="s2">"insufficient credit: balance $</span><span class="si">{</span><span class="n">balance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span>
+                <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">", need $</span><span class="si">{</span><span class="n">need</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">need</span> <span class="k">else</span> <span class="s2">""</span><span class="p">),</span>
                 <span class="n">remaining_usd</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">balance</span><span class="p">),</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;$</span><span class="si">{</span><span class="n">balance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> credit remaining&quot;</span><span class="p">,</span> <span class="n">remaining_usd</span><span class="o">=</span><span class="n">balance</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"$</span><span class="si">{</span><span class="n">balance</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> credit remaining"</span><span class="p">,</span> <span class="n">remaining_usd</span><span class="o">=</span><span class="n">balance</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">policy</span></div>
 
 
 
 <div class="viewcode-block" id="per_principal">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.per_principal">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.per_principal">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">per_principal</span><span class="p">(</span>
     <span class="n">policies</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">GatePolicy</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GatePolicy</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Route to a per-principal policy (tiered plans): ``{email: policy, ...}``.</span>
+<span class="w">    </span><span class="sd">"""Route to a per-principal policy (tiered plans): ``{email: policy, ...}``.</span>
 
 <span class="sd">    ``default`` handles principals not in the map (e.g. owner unlimited, everyone else</span>
 <span class="sd">    a cap: ``per_principal({owner: unlimited()}, default=credit_cap(10))``). With no</span>
 <span class="sd">    ``default``, an unlisted principal is **denied** (deny-by-default).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">lowered</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">policies</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
         <span class="n">chosen</span> <span class="o">=</span> <span class="n">lowered</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">default</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">chosen</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span>
-                <span class="kc">False</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;no usage policy configured for </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                <span class="kc">False</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"no usage policy configured for </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">principal</span><span class="si">!r}</span><span class="s2">"</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">chosen</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
 
@@ -375,66 +995,88 @@
 
 
 <div class="viewcode-block" id="require_all">
-<a class="viewcode-back" href="../../module_docs/enlace_metering/policy.html#enlace_metering.require_all">[docs]</a>
+<a class="viewcode-back" href="../../_autosummary/enlace_metering.policy.html#enlace_metering.require_all">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">require_all</span><span class="p">(</span><span class="o">*</span><span class="n">policies</span><span class="p">:</span> <span class="n">GatePolicy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GatePolicy</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Allow only if every policy allows; first denial wins (AND / most-restrictive).</span>
+<span class="w">    </span><span class="sd">"""Allow only if every policy allows; first denial wins (AND / most-restrictive).</span>
 
 <span class="sd">    E.g. ``require_all(per_call_cap(2), credit_cap(20))`` — bound both a single call</span>
 <span class="sd">    and the monthly total. With no policies, allows (vacuous truth).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">GateRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Decision</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">policies</span><span class="p">:</span>
             <span class="n">decision</span> <span class="o">=</span> <span class="n">p</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">decision</span><span class="o">.</span><span class="n">allow</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">decision</span>
-        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;all policies satisfied&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Decision</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">"all policies satisfied"</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">policy</span></div>
 
 
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;UsageQuery&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Decision&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GateRequest&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GatePolicy&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;unlimited&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;credit_cap&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;rolling_window_cap&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;per_call_cap&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;call_count_cap&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;balance_gate&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;per_principal&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;require_all&quot;</span><span class="p">,</span>
+    <span class="s2">"UsageQuery"</span><span class="p">,</span>
+    <span class="s2">"Decision"</span><span class="p">,</span>
+    <span class="s2">"GateRequest"</span><span class="p">,</span>
+    <span class="s2">"GatePolicy"</span><span class="p">,</span>
+    <span class="s2">"unlimited"</span><span class="p">,</span>
+    <span class="s2">"credit_cap"</span><span class="p">,</span>
+    <span class="s2">"rolling_window_cap"</span><span class="p">,</span>
+    <span class="s2">"per_call_cap"</span><span class="p">,</span>
+    <span class="s2">"call_count_cap"</span><span class="p">,</span>
+    <span class="s2">"balance_gate"</span><span class="p">,</span>
+    <span class="s2">"per_principal"</span><span class="p">,</span>
+    <span class="s2">"require_all"</span><span class="p">,</span>
 <span class="p">]</span>
 </pre></div>
 
-           </div>
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
           </div>
-          <footer>
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p></p>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
   </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
 
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.23.0.
+</p></div>
+      
+    </div>
+  
+</div>
 
-</footer>
-        </div>
-      </div>
-    </section>
-  </div>
-  <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
-
-</body>
+  </footer>
+  </body>
 </html>

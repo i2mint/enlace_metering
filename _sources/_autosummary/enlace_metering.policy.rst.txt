@@ -1,0 +1,33 @@
+enlace\_metering.policy
+=======================
+
+.. automodule:: enlace_metering.policy
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      GatePolicy
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      unlimited
+      credit_cap
+      rolling_window_cap
+      per_call_cap
+      call_count_cap
+      balance_gate
+      per_principal
+      require_all
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      UsageQuery
+      Decision
+      GateRequest
+   

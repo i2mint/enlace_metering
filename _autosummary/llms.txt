@@ -1,0 +1,14 @@
+# enlace_metering
+
+> Usage tracking + credit/quota access-gating for enlace MCP connectors (strategy-pattern policies + a durable ledger)
+
+
+## Pages in this subsection
+
+- [enlace_metering](enlace_metering.html.md): enlace_metering — usage tracking + credit/quota access-gating for enlace connectors.
+- [enlace_metering.ledger](enlace_metering.ledger.html.md): Durable usage ledger — the &#42;recording&#42; half of metering.
+- [enlace_metering.policy](enlace_metering.policy.html.md): Access-gating policies — the &#42;enforcement&#42; half of metering (deny before spend).
+
+## Optional
+
+- [Top-level llms.txt](../llms.txt): Complete documentation index.

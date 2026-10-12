@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "built_at": "2026-10-12T21:22:53Z",
+  "package": {
+    "name": "enlace_metering",
+    "version": "0.0.1",
+    "display_name": "enlace_metering",
+    "source": "pyproject.toml"
+  },
+  "git": {
+    "available": true,
+    "commit": "3098f568346fe45667390f13d1e2d7dbc01dfd46",
+    "short_commit": "3098f56",
+    "branch": "main",
+    "tags": [],
+    "dirty": false,
+    "remote_url": "https://github.com/i2mint/enlace_metering",
+    "commit_url": "https://github.com/i2mint/enlace_metering/commit/3098f568346fe45667390f13d1e2d7dbc01dfd46",
+    "error": null
+  },
+  "ci": {
+    "provider": "github",
+    "repository": "i2mint/enlace_metering",
+    "sha": "3098f568346fe45667390f13d1e2d7dbc01dfd46",
+    "sha_in_history": true,
+    "ref": "refs/heads/main",
+    "ref_name": "main",
+    "run_id": "38310110429",
+    "run_url": "https://github.com/i2mint/enlace_metering/actions/runs/38310110429",
+    "server_url": "https://github.com"
+  },
+  "tools": {
+    "epythet": "0.2.12",
+    "sphinx": "9.1.0",
+    "docutils": "0.22.4",
+    "python": "3.12.15"
+  },
+  "config": {
+    "theme": "auto",
+    "html_theme": "pydata_sphinx_theme",
+    "accent": "#604597",
+    "mode": "auto",
+    "api_generator": "autosummary",
+    "ignore": [
+      "tests/",
+      "scrap/",
+      "examples/"
+    ],
+    "agent_outputs": true,
+    "aggregates": [
+      "md"
+    ],
+    "ai_artifacts": true,
+    "provenance": true,
+    "docs_dir": "docsrc"
+  },
+  "site": {
+    "modules_documented": 3,
+    "objects_documented": 33
+  },
+  "pypi": {
+    "checked": true,
+    "latest": null,
+    "relation": "unknown",
+    "error": null
+  },
+  "reproduce": "git clone https://github.com/i2mint/enlace_metering && cd enlace_metering\ngit checkout 3098f568346fe45667390f13d1e2d7dbc01dfd46\npip install \"epythet==0.2.12\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "warnings": [],
+  "alignment": {
+    "aligned": true,
+    "notes": []
+  }
+}

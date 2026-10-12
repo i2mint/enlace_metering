@@ -1,8 +1,0 @@
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   module_docs/enlace_metering
-   module_docs/enlace_metering/ledger
-   module_docs/enlace_metering/middleware
-   module_docs/enlace_metering/policy
