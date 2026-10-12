@@ -58,9 +58,16 @@ Keyed `{principal}/{YYYY-MM}/{id}.json` so "what did X spend this month" is a ch
 
 ## Caller secrets in error text
 
-A failed call's error is recorded in the ledger and re-raised to the client, and a provider can quote the caller's bring-your-own key back in it (ElevenLabs does on a 401). So the middleware passes that text through a **redactor** first, and re-raises a scrubbed stand-in (same type where it can be rebuilt, else `ToolError`) with no chain back to the dirty original.
+A failed call's error is recorded in the ledger and re-raised to the client, and a provider can quote a key back in it (ElevenLabs does on a 401): the caller's bring-your-own key, or the connector's own key. So the middleware passes that text through a **redactor** first, and re-raises a scrubbed stand-in (same type where it can be rebuilt, else `ToolError`) with no chain back to the dirty original.
 
-The default, `redact_request_secrets`, replaces the value of every in-flight request header named like a credential (`Authorization`, `X-<Provider>-Key`, `-Token`, `-Secret`) with `<redacted:{header}>`, so a new BYO-key header is covered without configuration. Secrets that arrive some other way need their own: `MeteringMiddleware(ledger, redact=my_redactor)`, where `my_redactor(text) -> text`; build a header-based one with other rules via `request_secret_redactor(header_pattern=..., min_chars=...)`. If the redactor raises, the error text is withheld rather than recorded unredacted.
+The default, `redact_secrets`, replaces in one pass, longest first:
+
+- the value of every in-flight request header named like a credential (`Authorization`, `X-<Provider>-Key`, `-Token`, `-Secret`) with `<redacted:{header}>`;
+- the value of every environment variable named like one (a `_`-separated `KEY`, `API_KEY`, `TOKEN`, `SECRET`, `PASSWORD` or `PW` segment: `ELEVENLABS_API_KEY`, `FAL_KEY`, `SHARED_PW_X`) with `<redacted:env:{NAME}>`.
+
+So a new BYO-key header or a new provider key in the environment is covered without configuration. For a secret named otherwise, `MeteringMiddleware(ledger, redact=secret_redactor(env_names=["MY_URL_WITH_TOKEN"]))`; any `redact(text) -> text` works. If the redactor raises, the error text is withheld rather than recorded unredacted.
+
+fastmcp logs a failing tool's traceback *before* the middleware sees the exception, so the middleware also installs a `RedactingLogFilter` on fastmcp's loggers (`install_log_redaction()`): what reaches the connector's journal is redacted the same way, with the in-flight call's redactor. `MeteringMiddleware(..., redact_logs=False)` opts out.
 
 ## Install
 
