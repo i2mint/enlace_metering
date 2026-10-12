@@ -56,6 +56,12 @@ Forward-looking gating (deny a call that *would* cross a cap) needs a proposed-c
 
 Keyed `{principal}/{YYYY-MM}/{id}.json` so "what did X spend this month" is a cheap subtree scan. The middleware writes **write-ahead** (`started` → `done`/`error` under one id): a costed call never spends on a shared key without a recoverable trace. The store is injected, so it grows from a local `dol.Files` to `s3dol`/`sqldol` without touching callers.
 
+## Caller secrets in error text
+
+A failed call's error is recorded in the ledger and re-raised to the client, and a provider can quote the caller's bring-your-own key back in it (ElevenLabs does on a 401). So the middleware passes that text through a **redactor** first, and re-raises a scrubbed stand-in (same type where it can be rebuilt, else `ToolError`) with no chain back to the dirty original.
+
+The default, `redact_request_secrets`, replaces the value of every in-flight request header named like a credential (`Authorization`, `X-<Provider>-Key`, `-Token`, `-Secret`) with `<redacted:{header}>`, so a new BYO-key header is covered without configuration. Secrets that arrive some other way need their own: `MeteringMiddleware(ledger, redact=my_redactor)`, where `my_redactor(text) -> text`; build a header-based one with other rules via `request_secret_redactor(header_pattern=..., min_chars=...)`. If the redactor raises, the error text is withheld rather than recorded unredacted.
+
 ## Install
 
 ```bash

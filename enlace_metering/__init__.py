@@ -43,6 +43,9 @@ _LAZY = {
     "current_email": "enlace_metering.middleware",
     "CostEstimator": "enlace_metering.middleware",
     "CostExtractor": "enlace_metering.middleware",
+    "Redactor": "enlace_metering.middleware",
+    "request_secret_redactor": "enlace_metering.middleware",
+    "redact_request_secrets": "enlace_metering.middleware",
 }
 
 
