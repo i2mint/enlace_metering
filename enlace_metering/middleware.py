@@ -27,7 +27,6 @@ recorded) by adding the policy gate + a proposed-cost estimate hook.
 from __future__ import annotations
 
 import itertools
-import json
 import logging
 import os
 import re
@@ -35,6 +34,7 @@ import time
 import traceback
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Any, Callable, Iterable, Mapping, Optional, Union
 from urllib.parse import quote
 
@@ -112,30 +112,48 @@ MIN_SECRET_CHARS = 8
 REDACTION_FAILED = "<error text withheld: redaction failed>"
 
 
-#: How text quoting a secret may have escaped it: ``repr()`` (backslashes doubled,
-#: plus whichever quote it chose) and JSON (a provider's error body).
-_ESCAPES = (
-    lambda s: s.replace("\\", "\\\\"),
-    lambda s: s.replace("\\", "\\\\").replace("'", "\\'"),
-    lambda s: s.replace("\\", "\\\\").replace('"', '\\"'),
-    lambda s: json.dumps(s)[1:-1],
-)
-
-#: Escapes stack: a ledger row is ``repr()`` of an exception whose message may
-#: quote a provider's JSON body, so a secret can arrive escaped twice.
-ESCAPE_DEPTH = 2
+#: The named escapes ``repr()`` and JSON write for control characters.
+_NAMED_ESCAPES = {"\n": "n", "\r": "r", "\t": "t", "\b": "b", "\f": "f"}
 
 
-def _escaped_forms(value: str, *, depth: int = ESCAPE_DEPTH) -> set[str]:
-    """*value* and every form :data:`_ESCAPES` gives it, applied up to *depth* times.
+def _escaped_char_pattern(c: str) -> str:
+    r"""A regex for the character *c* after any number of layers of escaping.
 
-    >>> sorted(_escaped_forms('a"b', depth=1))
-    ['a"b', 'a\\\\"b']
+    An ASCII letter or digit is never escaped. Any other character may follow a
+    run of backslashes (each ``repr()`` layer doubles them; JSON escapes ``"``,
+    ``\`` and, in some serialisers, ``/``), or be written as a named escape
+    (``\n``) or a hex code (``\x01``, ``\u00e9``).
     """
-    forms = {value}
-    for _ in range(depth):
-        forms |= {escape(f) for f in forms for escape in _ESCAPES}
-    return forms
+    if c.isascii() and c.isalnum():
+        return c
+    code = ord(c)
+    forms = [r"\\*" + re.escape(c)]
+    if c in _NAMED_ESCAPES:
+        forms.append(r"\\+" + _NAMED_ESCAPES[c])
+    if code < 0x100:
+        forms.append(rf"\\+x(?i:{code:02x})")
+    forms.append(
+        rf"\\+u(?i:{code:04x})" if code < 0x10000 else rf"\\+U(?i:{code:08x})"
+    )
+    return "(?:" + "|".join(forms) + ")"
+
+
+@lru_cache(maxsize=1024)
+def escape_tolerant_pattern(secret: str) -> re.Pattern:
+    r"""A pattern matching *secret* raw or escaped, however many layers deep.
+
+    Text that quotes a secret has often escaped it, sometimes more than once: a
+    provider's JSON error body, embedded with ``!r`` in an exception message,
+    then ``repr()`` of that exception in a ledger row. Matching each escape
+    layer by layer always misses the next one, so this matches every layer at
+    once. (A character outside the Basic Multilingual Plane written as a JSON
+    surrogate pair is not matched.)
+
+    >>> p = escape_tolerant_pattern('pa"ss/wd')
+    >>> [bool(p.search(t)) for t in ('pa"ss/wd', r'"pa\"ss\/wd"', r"'pa\\\"ss/wd'")]
+    [True, True, True]
+    """
+    return re.compile("".join(map(_escaped_char_pattern, secret)))
 
 
 def _http_headers() -> dict[str, str]:
@@ -174,8 +192,8 @@ def secret_redactor(
     - the process environment (names matching ``env_pattern``, plus ``env_names``):
       the host's own provider keys, replaced by ``<redacted:env:{NAME}>``.
 
-    Each secret is also matched escaped as ``repr()`` and JSON escape it (up to
-    :data:`ESCAPE_DEPTH` layers), URL-encoded, and per ``:``-separated part. All are
+    Each secret is also matched URL-encoded and per ``:``-separated part, and every
+    form however it was escaped (:func:`escape_tolerant_pattern`). All are
     replaced longest first, so one that contains another is never half-replaced.
     A provider that quotes only a truncated prefix is out of reach. ``None`` for a
     pattern turns that source off.
@@ -211,9 +229,10 @@ def secret_redactor(
                     yield value, f"env:{name}"
 
     def variants(value: str):
-        """The forms a provider may quote a secret in: as is or escaped (repr, JSON),
-        URL-encoded, and each ``:``-separated part (fal keys are ``id:secret``)."""
-        yield from _escaped_forms(value)
+        """The forms a provider may quote a secret in: as is, URL-encoded, and each
+        ``:``-separated part (fal keys are ``id:secret``). Each is matched however
+        it was escaped (:func:`escape_tolerant_pattern`)."""
+        yield value
         yield quote(value, safe="")
         yield from value.split(":")
 
@@ -224,7 +243,8 @@ def secret_redactor(
                 if len(form) >= min_chars:
                     found.setdefault(form, label)
         for value, label in sorted(found.items(), key=lambda kv: -len(kv[0])):
-            text = text.replace(value, f"<redacted:{label}>")
+            mark = f"<redacted:{label}>"
+            text = escape_tolerant_pattern(value).sub(lambda _m: mark, text)
         return text
 
     return redact

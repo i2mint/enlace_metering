@@ -392,7 +392,9 @@ def test_dirty_cause_or_note_is_not_reraised(monkeypatch):
         err.add_note(f"key was {_KEY}")
         raise err
 
-    for call in (_masked, _noted):
+    # add_note is 3.11+: on 3.10 _noted would raise AttributeError and test nothing.
+    calls = (_masked, _noted) if sys.version_info >= (3, 11) else (_masked,)
+    for call in calls:
         entry, raised = _failing_call({}, call)
         chain = [raised, raised.__cause__, raised.__context__]
         assert not any(_KEY in repr(e) for e in chain if e is not None)
@@ -791,3 +793,32 @@ def test_a_key_with_escaped_characters_is_redacted_everywhere(monkeypatch, rende
     for text in (str(store), str(raised), repr(raised)):
         assert "wo\\'rd-0123456" not in text and "wo'rd-0123456" not in text, text
     assert "<redacted:env:SMTP_PASS>" in entry["error"]
+
+
+@pytest.mark.parametrize(
+    "secret, render",
+    [
+        # JSON body, embedded with !r, then the ledger's repr(exc): three layers.
+        (_ESCAPED_KEY, lambda k: f"bad: {json.dumps({'k': k})!r}"),
+        # repr writes a control character as \xNN, JSON as \u00NN.
+        ("abc\x01defghijk", lambda k: f"bad {k}"),
+        ("abc\x01defghijk", lambda k: "bad " + json.dumps(k)),
+        # Some serialisers escape "/" (common in base64 keys) as "\/".
+        ("abc/def+ghi/jklmno", lambda k: '{"k":"' + k.replace("/", "\\/") + '"}'),
+        # An id:secret key whose secret part needs escaping.
+        ("id1234567:se'cr\"et999xyz", lambda k: "bad se'cr\"et999xyz"),
+    ],
+    ids=["three-layers", "control-repr", "control-json", "json-slash", "part"],
+)
+def test_no_escaping_hides_a_key(monkeypatch, secret, render):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    monkeypatch.setenv("SMTP_PASS", secret)
+
+    async def _call(ctx):
+        raise RuntimeError(render(secret))
+
+    store = {}
+    entry, raised = _failing_call(store, _call, redact_logs=False)
+    tail = secret[-6:]  # alphanumeric: no escaping touches it
+    for text in (entry["error"], str(raised), repr(raised)):
+        assert tail not in text, text
