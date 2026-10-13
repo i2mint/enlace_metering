@@ -50,6 +50,7 @@ _LAZY = {
     "RedactingLogFilter": "enlace_metering.middleware",
     "install_log_redaction": "enlace_metering.middleware",
     "ALL_LOGGERS": "enlace_metering.middleware",
+    "inflight_request_secrets": "enlace_metering.middleware",
     "redact_log_record": "enlace_metering.middleware",
     "request_secret_redactor": "enlace_metering.middleware",
     "redact_request_secrets": "enlace_metering.middleware",

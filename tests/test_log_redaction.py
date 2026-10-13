@@ -64,23 +64,93 @@ def test_a_traceback_on_the_root_logger_is_redacted(secret_env):
     assert _KEY not in out.getvalue() and "RuntimeError" in out.getvalue()
 
 
-def test_warnings_go_through_the_redaction(monkeypatch):
+def test_warnings_are_redacted_where_they_already_went(monkeypatch):
+    """``showwarning`` is wrapped, not replaced: the previous one still gets the
+    warning (redacted when dirty, the very same object when clean)."""
+    monkeypatch.setenv("FAL_KEY", _KEY)
+    seen = []
+
+    def previous(message, category, filename, lineno, file=None, line=None):
+        seen.append((message, category, line))
+
+    with warnings.catch_warnings():  # restores showwarning on exit
+        warnings.simplefilter("always")
+        warnings.showwarning = previous
+        install_log_redaction(namespaces=ALL_LOGGERS)
+        warnings.warn(f"generation skipped: {_KEY}")
+        clean = UserWarning("nothing secret")
+        warnings.warn(clean)
+    (dirty_msg, category, _), (clean_msg, _, line) = seen
+    assert category is UserWarning and isinstance(dirty_msg, UserWarning)
+    assert str(dirty_msg) == "generation skipped: <redacted:env:FAL_KEY>"
+    assert clean_msg is clean and line is None
+
+
+def test_warnings_captured_into_logging_are_redacted(monkeypatch):
+    """A host that routes warnings into logging (``captureWarnings``) after the
+    install still gets them redacted."""
     monkeypatch.setenv("FAL_KEY", _KEY)
     out = io.StringIO()
     handler = logging.StreamHandler(out)
     logger = logging.getLogger("py.warnings")
     logger.addHandler(handler)
     try:
-        # pytest swaps warnings.showwarning per test, so start from no capture.
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-            logging.captureWarnings(False)
             install_log_redaction(namespaces=ALL_LOGGERS)
-            warnings.warn(f"generation skipped: {_KEY}")
-            logging.captureWarnings(False)
+            logging.captureWarnings(True)
+            try:
+                warnings.warn(f"generation skipped: {_KEY}")
+            finally:
+                logging.captureWarnings(False)
     finally:
         logger.removeHandler(handler)
     assert "generation skipped" in out.getvalue() and _KEY not in out.getvalue()
+
+
+_PROCESS_SCRIPT = """
+import os, threading, warnings
+from enlace_metering import install_log_redaction
+install_log_redaction(namespaces="*")
+key = os.environ["FAL_KEY"]
+warnings.warn("a clean warning")
+warnings.warn("a dirty warning " + key)
+class Dying:
+    def __del__(self):
+        raise RuntimeError("del " + key)
+d = Dying(); del d
+def work():
+    raise RuntimeError("thread " + key)
+t = threading.Thread(target=work, name="raw-worker"); t.start(); t.join()
+raise RuntimeError("uncaught " + key)
+"""
+
+
+def test_a_whole_process_with_unconfigured_logging():
+    """In a plain process (no logging config, no pytest hooks) every path still
+    prints, redacted: warnings (not swallowed by a ``NullHandler``), ``__del__``,
+    a raw thread, and the uncaught exception."""
+    import os
+    import pathlib
+    import subprocess
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    env = {**os.environ, "FAL_KEY": _KEY, "PYTHONPATH": str(root)}
+    proc = subprocess.run(
+        [sys.executable, "-c", _PROCESS_SCRIPT],
+        capture_output=True, text=True, env=env, cwd=root, timeout=60,
+    )
+    err = proc.stderr
+    assert proc.returncode == 1 and _KEY not in err and _KEY not in proc.stdout
+    for shown in (
+        "a clean warning",
+        "a dirty warning <redacted:env:FAL_KEY>",
+        "del <redacted:env:FAL_KEY>",
+        "Exception in thread raw-worker",
+        "thread <redacted:env:FAL_KEY>",
+        "uncaught <redacted:env:FAL_KEY>",
+    ):
+        assert shown in err, (shown, err)
 
 
 class _Url:
@@ -152,3 +222,371 @@ def test_an_exception_in_a_thread_prints_redacted(monkeypatch, capsys):
     t.join()
     err = capsys.readouterr().err
     assert "worker-1" in err and "thread boom" in err and _KEY not in err
+
+
+# --- the adversarial review of #5 -------------------------------------------
+
+
+def test_a_string_redact_logs_still_covers_fastmcp(monkeypatch):
+    monkeypatch.setattr(mw_mod, "_REDACTED_NAMESPACES", set())
+    MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"}, redact_logs="braidio_x")
+    assert {"fastmcp", "braidio_x"} <= mw_mod._REDACTED_NAMESPACES
+    assert ALL_LOGGERS not in mw_mod._REDACTED_NAMESPACES
+
+
+def test_stack_info_is_redacted(secret_env):
+    record = logging.getLogger("prov").makeRecord(
+        "prov", logging.WARNING, __file__, 1, "x", (), None,
+        sinfo=f"Stack (most recent call last):\n  key={_KEY}",
+    )
+    assert _KEY not in record.stack_info and "<redacted:env:FAL_KEY>" in record.stack_info
+
+
+def test_dirty_args_keep_their_shape(secret_env):
+    """Formatters such as uvicorn's access log unpack ``record.args``: a dirty
+    argument is redacted in place, the others keep their type."""
+    record = logging.getLogger("prov").makeRecord(
+        "prov", logging.INFO, __file__, 1, '%s - "%s %s" %d', (
+            "127.0.0.1:5000", "GET", f"/v1?key={_KEY}", 200,
+        ), None,
+    )
+    assert record.msg == '%s - "%s %s" %d'
+    assert record.args == (
+        "127.0.0.1:5000", "GET", "/v1?key=<redacted:env:FAL_KEY>", 200
+    )
+    mapping = logging.getLogger("prov").makeRecord(
+        "prov", logging.INFO, __file__, 1, "%(url)s %(n)d",
+        ({"url": _Url(), "n": 3},), None,
+    )
+    assert mapping.args["n"] == 3 and _KEY not in mapping.getMessage()
+
+
+def test_uvicorn_access_formatter_still_formats_a_dirty_record(secret_env, capsys):
+    from uvicorn.logging import AccessFormatter
+
+    logger = logging.getLogger("uvicorn.access.test")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    handler.setFormatter(AccessFormatter('%(client_addr)s "%(request_line)s" %(status_code)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    try:
+        logger.info(
+            '%s - "%s %s HTTP/%s" %d',
+            "127.0.0.1:5000", "GET", f"/v1?key={_KEY}", "1.1", 401,
+        )
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(logging.NOTSET)
+    assert "Logging error" not in capsys.readouterr().err
+    text = out.getvalue()
+    assert "GET /v1?key=<redacted:env:FAL_KEY> HTTP/1.1" in text and "401" in text
+    assert _KEY not in text
+
+
+def test_a_secret_split_across_arguments_falls_back_to_the_whole_message(secret_env):
+    half = len(_KEY) // 2
+    record = logging.getLogger("prov").makeRecord(
+        "prov", logging.INFO, __file__, 1, "%s%s", (_KEY[:half], _KEY[half:]), None
+    )
+    assert record.args is None and _KEY not in record.getMessage()
+
+
+def test_a_dirty_traceback_keeps_the_arguments(secret_env):
+    logger = logging.getLogger("prov")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    logger.addHandler(handler)
+    try:
+        try:
+            raise RuntimeError(f"100% failed: {_KEY}")
+        except RuntimeError:
+            logger.exception("Error calling tool %r", "synthesize")
+    finally:
+        logger.removeHandler(handler)
+    text = out.getvalue()
+    assert "Error calling tool 'synthesize'" in text and "100% failed" in text
+    assert _KEY not in text
+
+
+def test_a_record_logged_by_the_redactor_is_withheld(secret_env):
+    def chatty(text):
+        logging.getLogger("host.redactor").warning("redacting: %s", text)
+        return mw_mod.redact_secrets(text)
+
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    host = logging.getLogger("host.redactor")
+    host.addHandler(handler)
+    token = mw_mod._CURRENT_REDACTOR.set(chatty)
+    try:
+        prov = _emit("prov", "401 %s", _KEY)
+    finally:
+        mw_mod._CURRENT_REDACTOR.reset(token)
+        host.removeHandler(handler)
+    assert _KEY not in out.getvalue() and mw_mod.REDACTION_FAILED in out.getvalue()
+    assert _KEY not in prov and "<redacted:env:FAL_KEY>" in prov
+
+
+def test_the_redactor_failed_warning_itself_gets_through(secret_env, monkeypatch):
+    monkeypatch.setattr(mw_mod, "redact_secrets", lambda s: 1 / 0)
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    mw_mod._logger.addHandler(handler)
+    try:
+        _emit("prov", "key %s", _KEY)
+    finally:
+        mw_mod._logger.removeHandler(handler)
+    assert "redactor failed" in out.getvalue()
+
+
+def test_an_unrenderable_extra_field_is_withheld_alone(monkeypatch):
+    monkeypatch.setenv("FAL_KEY", _KEY)
+
+    class Boom:
+        def __str__(self):
+            raise ValueError("no str")
+
+    record = logging.getLogger("j").makeRecord(
+        "j", logging.WARNING, __file__, 1, "clean message", (), None,
+        extra={"obj": Boom(), "url": _Url()},
+    )
+    mw_mod.RedactingLogFilter().filter(record)
+    assert record.getMessage() == "clean message"
+    assert record.obj == mw_mod.REDACTION_FAILED and _KEY not in record.url
+
+
+def test_records_that_bypass_the_factory_are_redacted_by_existing_handlers(
+    monkeypatch,
+):
+    """``makeLogRecord`` and a logger's own ``makeRecord`` never call the record
+    factory: the filter attached to every handler at install time catches them."""
+    monkeypatch.setenv("FAL_KEY", _KEY)
+    logger = logging.getLogger("bypass.factory")
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    logger.addHandler(handler)
+    try:
+        install_log_redaction(namespaces=ALL_LOGGERS)
+        assert any(isinstance(f, mw_mod.RedactingLogFilter) for f in handler.filters)
+        assert any(
+            isinstance(f, mw_mod.RedactingLogFilter)
+            for f in logging.lastResort.filters
+        )
+        install_log_redaction(namespaces=ALL_LOGGERS)  # attached once
+        assert sum(isinstance(f, mw_mod.RedactingLogFilter) for f in handler.filters) == 1
+        logger.handle(logging.makeLogRecord(
+            {"name": "bypass.factory", "levelno": 30, "msg": f"made {_KEY}"}
+        ))
+        logger.handle(logging.LogRecord(
+            "bypass.factory", 30, __file__, 1, "direct %s", (_KEY,), None
+        ))
+    finally:
+        logger.removeHandler(handler)
+    text = out.getvalue()
+    assert "made" in text and "direct" in text and _KEY not in text
+
+
+def test_a_changed_environment_is_picked_up(monkeypatch):
+    redact = mw_mod.secret_redactor(headers=dict)
+    monkeypatch.setenv("FAL_KEY", _KEY)
+    assert redact(_KEY) == "<redacted:env:FAL_KEY>"
+    assert redact(_KEY) == "<redacted:env:FAL_KEY>"  # cached
+    other = "fal-sk-ANOTHERKEY-9876543210"
+    monkeypatch.setenv("FAL_KEY", other)
+    assert redact(other) == "<redacted:env:FAL_KEY>" and redact(_KEY) == _KEY
+    monkeypatch.setenv("NEW_PROVIDER_TOKEN", _KEY)
+    assert redact(_KEY) == "<redacted:env:NEW_PROVIDER_TOKEN>"
+
+
+# --- hooks: excepthook, threading.excepthook, unraisablehook -----------------
+
+
+@pytest.fixture
+def fresh_hooks(monkeypatch):
+    """Our hooks installed on top of recorders standing in for the previous ones
+    (pytest owns the real ones during a test); monkeypatch restores them all."""
+    monkeypatch.setenv("FAL_KEY", _KEY)
+    seen = {"sys": [], "thread": [], "unraisable": []}
+    monkeypatch.setattr(sys, "excepthook", lambda *a: seen["sys"].append(a))
+    monkeypatch.setattr(threading, "excepthook", lambda a: seen["thread"].append(a))
+    monkeypatch.setattr(sys, "unraisablehook", lambda u: seen["unraisable"].append(u))
+    mw_mod._install_redacting_excepthooks()
+    return seen
+
+
+def _dirty_exc_info():
+    try:
+        raise RuntimeError(f"boom {_KEY}")
+    except RuntimeError:
+        return sys.exc_info()
+
+
+def test_a_dirty_uncaught_exception_reaches_the_previous_hook_scrubbed(fresh_hooks):
+    sys.excepthook(*_dirty_exc_info())
+    ((exc_type, exc, tb),) = fresh_hooks["sys"]
+    assert exc_type is RuntimeError and str(exc) == "boom <redacted:env:FAL_KEY>"
+    assert tb is not None  # the frames are kept: their text is clean
+
+
+def test_a_clean_uncaught_exception_reaches_the_previous_hook_as_is(fresh_hooks):
+    try:
+        raise RuntimeError("nothing secret")
+    except RuntimeError:
+        info = sys.exc_info()
+    sys.excepthook(*info)
+    assert fresh_hooks["sys"] == [info]
+
+
+def test_the_thread_hook_passes_a_scrubbed_exception_on(fresh_hooks):
+    exc_type, exc, tb = _dirty_exc_info()
+    threading.excepthook(threading.ExceptHookArgs([exc_type, exc, tb, None]))
+    ((args,),) = [fresh_hooks["thread"]]
+    assert str(args.exc_value) == "boom <redacted:env:FAL_KEY>" and args.thread is None
+
+
+def test_the_thread_hook_passes_system_exit_through(fresh_hooks):
+    args = threading.ExceptHookArgs([SystemExit, SystemExit(f"bye {_KEY}"), None, None])
+    threading.excepthook(args)
+    assert fresh_hooks["thread"] == [args]
+
+
+def test_a_failing_previous_hook_prints_redacted_with_no_thread(monkeypatch, capsys):
+    monkeypatch.setenv("FAL_KEY", _KEY)
+
+    def broken(*args):
+        raise OSError("crash reporter down")
+
+    monkeypatch.setattr(sys, "excepthook", broken)
+    monkeypatch.setattr(threading, "excepthook", broken)
+    monkeypatch.setattr(sys, "unraisablehook", sys.__unraisablehook__)
+    mw_mod._install_redacting_excepthooks()
+    exc_type, exc, tb = _dirty_exc_info()
+    threading.excepthook(threading.ExceptHookArgs([exc_type, exc, tb, None]))
+    sys.excepthook(exc_type, exc, tb)
+    err = capsys.readouterr().err
+    assert "Exception in thread <unknown>" in err and "boom" in err and _KEY not in err
+
+
+def test_hooks_tolerate_a_missing_stderr(monkeypatch):
+    monkeypatch.setenv("FAL_KEY", _KEY)
+
+    def broken(*args):
+        raise OSError("no reporter")
+
+    monkeypatch.setattr(sys, "excepthook", broken)
+    monkeypatch.setattr(threading, "excepthook", broken)
+    monkeypatch.setattr(sys, "unraisablehook", broken)
+    mw_mod._install_redacting_excepthooks()
+    monkeypatch.setattr(sys, "stderr", None)
+    exc_type, exc, tb = _dirty_exc_info()
+    sys.excepthook(exc_type, exc, tb)
+    threading.excepthook(threading.ExceptHookArgs([exc_type, exc, tb, None]))
+    _unraisable(exc_type, exc, tb, f"err {_KEY}", None)
+
+
+def _unraisable(exc_type, exc, tb, err_msg, obj):
+    """Call ``sys.unraisablehook`` with real ``UnraisableHookArgs``."""
+    captured = []
+    saved = sys.unraisablehook
+    sys.unraisablehook = captured.append
+
+    class Dying:
+        def __del__(self):
+            raise RuntimeError("probe")
+
+    d = Dying()
+    del d
+    sys.unraisablehook = saved
+    (probe,) = captured
+    sys.unraisablehook(type(probe)((exc_type, exc, tb, err_msg, obj)))
+
+
+class _DirtyRepr:
+    def __repr__(self):
+        return f"<conn key={_KEY}>"
+
+
+def test_an_exception_ignored_in_del_reaches_the_previous_hook_scrubbed(fresh_hooks):
+    exc_type, exc, tb = _dirty_exc_info()
+    _unraisable(exc_type, exc, tb, f"Exception ignored in {_KEY}", _DirtyRepr())
+    (u,) = fresh_hooks["unraisable"]
+    assert str(u.exc_value) == "boom <redacted:env:FAL_KEY>"
+    assert _KEY not in u.err_msg and _KEY not in repr(u.object)
+    assert "<redacted:env:FAL_KEY>" in repr(u.object)
+
+
+def test_an_exception_ignored_in_del_prints_redacted(monkeypatch, capsys):
+    monkeypatch.setenv("FAL_KEY", _KEY)
+    monkeypatch.setattr(sys, "unraisablehook", sys.__unraisablehook__)
+    mw_mod._install_redacting_excepthooks()
+
+    class Dying:
+        def __del__(self):
+            raise RuntimeError(f"del {_KEY}")
+
+    d = Dying()
+    del d
+    err = capsys.readouterr().err
+    assert "del <redacted:env:FAL_KEY>" in err and _KEY not in err
+
+
+# --- a raw thread's records know the caller's BYO header key ------------------
+
+
+def test_a_raw_thread_redacts_the_callers_header_key(monkeypatch, capsys):
+    """A ``threading.Thread`` does not copy the request's context, so the
+    request's headers are invisible there: the middleware registers them
+    process-wide for the duration of the call."""
+    import asyncio
+    import contextvars
+
+    import fastmcp.server.dependencies as deps
+
+    caller_key = "byo-CALLER-KEY-0123456789abcdef"
+    in_request = contextvars.ContextVar("in_request", default=False)
+
+    def headers(include_all=False, include=None):
+        return {"x-fal-key": caller_key} if in_request.get() else {}
+
+    monkeypatch.setattr(deps, "get_http_headers", headers)
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    monkeypatch.setattr(threading, "excepthook", threading.__excepthook__)
+    mw = MeteringMiddleware(UsageLedger({}), allowed={"o@x.com"})
+    monkeypatch.setattr(sys, "excepthook", sys.__excepthook__)
+    mw_mod._install_redacting_excepthooks()
+
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    worker = logging.getLogger("provider.worker")
+    worker.addHandler(handler)
+
+    def work():
+        assert not in_request.get()  # no context copied into the thread
+        worker.warning("auth failed for key %s", caller_key)
+        raise RuntimeError(f"thread boom {caller_key}")
+
+    async def call_next(ctx):
+        t = threading.Thread(target=work, name="raw-worker")
+        t.start()
+        t.join()
+        return None
+
+    class _Msg:
+        name, arguments = "synthesize", {}
+
+    class _Ctx:
+        message = _Msg()
+
+    async def run():
+        in_request.set(True)
+        return await mw.on_call_tool(_Ctx(), call_next)
+
+    try:
+        asyncio.run(run())
+    finally:
+        worker.removeHandler(handler)
+    err = capsys.readouterr().err
+    assert caller_key not in out.getvalue() and "<redacted:x-fal-key>" in out.getvalue()
+    assert "thread boom <redacted:x-fal-key>" in err and caller_key not in err
+    assert mw_mod.inflight_request_secrets() == ()  # removed when the call ended
