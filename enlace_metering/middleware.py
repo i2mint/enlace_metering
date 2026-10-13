@@ -30,6 +30,8 @@ import itertools
 import logging
 import os
 import re
+import sys
+import threading
 import time
 import traceback
 from contextvars import ContextVar
@@ -396,6 +398,10 @@ def _scrubbed_exception(
 _CURRENT_REDACTOR: ContextVar[Optional[Redactor]] = ContextVar(
     "enlace_metering_redactor", default=None
 )
+#: Set while :func:`redact_log_record` runs (the re-entrancy guard).
+_REDACTING_RECORD: ContextVar[bool] = ContextVar(
+    "enlace_metering_redacting_record", default=False
+)
 
 
 def redact_log_record(record: logging.LogRecord) -> None:
@@ -406,6 +412,19 @@ def redact_log_record(record: logging.LogRecord) -> None:
     record's text is withheld. Never raises (it runs inside the caller's logging
     call) and never drops a record.
     """
+    if _REDACTING_RECORD.get():
+        # A record logged while one is being redacted (the "redactor failed"
+        # warning, whose text is fixed): redacting it with the same redactor
+        # would recurse without end once every logger is covered.
+        return
+    token = _REDACTING_RECORD.set(True)
+    try:
+        _redact_log_record(record)
+    finally:
+        _REDACTING_RECORD.reset(token)
+
+
+def _redact_log_record(record: logging.LogRecord) -> None:
     redact = _CURRENT_REDACTOR.get() or redact_secrets
     try:
         message = record.getMessage()
@@ -425,9 +444,39 @@ def redact_log_record(record: logging.LogRecord) -> None:
             record.exc_info, record.exc_text = None, None
         if clean_stack != stack:
             record.stack_info = clean_stack
+        _redact_extra_fields(record, redact)
     except Exception:  # noqa: BLE001 — never break the caller's logging call
         record.msg, record.args = REDACTION_FAILED, None
         record.exc_info = record.exc_text = record.stack_info = None
+
+
+#: The attributes every ``LogRecord`` has; anything else came from ``extra=``.
+_STANDARD_RECORD_ATTRS = frozenset(
+    logging.LogRecord("", 0, "", 0, "", None, None).__dict__
+) | {"message", "asctime"}
+
+#: Values that cannot carry a secret, so ``extra=`` fields of these types are kept.
+_INERT_TYPES = (bool, int, float, type(None))
+
+
+def _redact_extra_fields(record: logging.LogRecord, redact: Redactor) -> None:
+    """Redact the fields a caller passed with ``extra=`` (in place).
+
+    A plain-text formatter never shows them, but a JSON handler emits every one,
+    and provider SDKs pass things like the request ``url`` this way. ``logging``
+    sets them *after* the record factory has run, so the factory installed by
+    :func:`install_log_redaction` cannot see them: attach
+    :class:`RedactingLogFilter` to any handler that emits them. A field whose
+    text the redactor would change is replaced by the redacted text (so a URL
+    object becomes a string); a clean field keeps its type.
+    """
+    for key, value in list(record.__dict__.items()):
+        if key in _STANDARD_RECORD_ATTRS or isinstance(value, _INERT_TYPES):
+            continue
+        text = value if isinstance(value, str) else str(value)
+        clean = _redact_safely(redact, text)
+        if clean != text:
+            setattr(record, key, clean)
 
 
 class RedactingLogFilter(logging.Filter):
@@ -444,19 +493,44 @@ class RedactingLogFilter(logging.Filter):
 #: ``fastmcp.tools.base``).
 LOG_NAMESPACES = ("fastmcp",)
 
+#: Pass as ``namespaces`` (or a middleware's ``redact_logs``) to redact every
+#: record in the process: the root logger, provider SDKs (``httpx``,
+#: ``fal_client``, ElevenLabs' ``fern``), ``uvicorn.error``, ``asyncio``, and
+#: ``warnings.warn`` (routed through logging). See :func:`install_log_redaction`.
+ALL_LOGGERS = "*"
+
 #: The namespaces whose records the installed record factory redacts (grows only).
 _REDACTED_NAMESPACES: set[str] = set()
 
 
-def install_log_redaction(*, namespaces: Iterable[str] = LOG_NAMESPACES) -> None:
-    """Redact every log record created under ``namespaces``, from now on.
+def install_log_redaction(
+    *, namespaces: Union[str, Iterable[str]] = LOG_NAMESPACES
+) -> None:
+    """Redact log records created under ``namespaces`` from now on, or every one.
 
     Wraps the process's ``LogRecordFactory`` (chained, installed once), so it
     covers loggers created *later* too — fastmcp 4.x creates the one that writes
     the tool traceback lazily — and whatever handler the host configures. Calling
-    again only adds namespaces.
+    again only widens what is covered.
+
+    ``namespaces=ALL_LOGGERS`` (``"*"``) covers every record in the process. It
+    also routes ``warnings.warn`` through logging (``logging.captureWarnings``),
+    since a warning would otherwise bypass it, and redacts what an uncaught
+    exception prints, in the main thread or any other. Call it as the first
+    statement of a connector's ``server.py`` to cover records logged at import
+    time too; a middleware constructed later only covers what follows it. The
+    cost is one redaction per *emitted* record (records below the level are never
+    created).
+
+    >>> install_log_redaction(namespaces="*")  # doctest: +SKIP
     """
+    if isinstance(namespaces, str):
+        # A bare string is one namespace, not an iterable of one-letter ones.
+        namespaces = (namespaces,)
     _REDACTED_NAMESPACES.update(namespaces)
+    if ALL_LOGGERS in _REDACTED_NAMESPACES:
+        logging.captureWarnings(True)
+        _install_redacting_excepthooks()
     previous = logging.getLogRecordFactory()
     if getattr(previous, "_enlace_metering_redacting", False):
         return
@@ -464,12 +538,50 @@ def install_log_redaction(*, namespaces: Iterable[str] = LOG_NAMESPACES) -> None
     def factory(*args, **kwargs):
         record = previous(*args, **kwargs)
         name = record.name
-        if any(name == ns or name.startswith(ns + ".") for ns in _REDACTED_NAMESPACES):
+        if ALL_LOGGERS in _REDACTED_NAMESPACES or any(
+            name == ns or name.startswith(ns + ".") for ns in _REDACTED_NAMESPACES
+        ):
             redact_log_record(record)
         return record
 
     factory._enlace_metering_redacting = True
     logging.setLogRecordFactory(factory)
+
+
+def _install_redacting_excepthooks() -> None:
+    """Redact what an uncaught exception prints (``sys`` and ``threading`` hooks).
+
+    These write straight to stderr, not through logging. A clean traceback is
+    handed to the previous hook unchanged; a dirty one is written redacted. If
+    redaction fails, the traceback is withheld.
+    """
+    if getattr(sys.excepthook, "_enlace_metering_redacting", False):
+        return
+    previous_sys, previous_thread = sys.excepthook, threading.excepthook
+
+    def _dirty(exc_type, exc, tb) -> Optional[str]:
+        text = "".join(traceback.format_exception(exc_type, exc, tb))
+        clean = _redact_safely(_CURRENT_REDACTOR.get() or redact_secrets, text)
+        return None if clean == text else clean
+
+    def sys_hook(exc_type, exc, tb):
+        clean = _dirty(exc_type, exc, tb)
+        if clean is None:
+            return previous_sys(exc_type, exc, tb)
+        sys.stderr.write(clean)
+
+    def thread_hook(args):
+        if args.exc_type is SystemExit:
+            return previous_thread(args)
+        clean = _dirty(args.exc_type, args.exc_value, args.exc_traceback)
+        if clean is None:
+            return previous_thread(args)
+        name = args.thread.name if args.thread is not None else "<unknown>"
+        sys.stderr.write(f"Exception in thread {name}:\n{clean}")
+
+    sys_hook._enlace_metering_redacting = True
+    thread_hook._enlace_metering_redacting = True
+    sys.excepthook, threading.excepthook = sys_hook, thread_hook
 
 
 def token_email() -> Optional[str]:
@@ -563,9 +675,12 @@ class MeteringMiddleware(Middleware):
             env vars). Build one with :func:`secret_redactor` (e.g. ``env_names=``)
             when a secret arrives another way. The same redactor is installed on
             fastmcp's log records (:func:`install_log_redaction`), which carry a
-            failing tool's traceback before this middleware sees it. Pass logger
-            namespaces (``redact_logs=("braidio",)``) to cover the connector's own
-            loggers too; ``redact_logs=False`` opts out.
+            failing tool's traceback before this middleware sees it. The default,
+            ``redact_logs=ALL_LOGGERS`` (``"*"``), covers every logger in the
+            process, ``warnings.warn`` and uncaught exceptions (see
+            :func:`install_log_redaction`). Logger namespaces
+            (``redact_logs=("braidio",)``) limit it to fastmcp plus those;
+            ``True`` to fastmcp alone; ``False`` opts out.
     """
 
     def __init__(
@@ -580,7 +695,7 @@ class MeteringMiddleware(Middleware):
         extract_cost: Optional[CostExtractor] = None,
         metered_tools: Optional[set[str]] = None,
         redact: Optional[Redactor] = None,
-        redact_logs: Union[bool, Iterable[str]] = True,
+        redact_logs: Union[bool, str, Iterable[str]] = ALL_LOGGERS,
     ):
         self.ledger = ledger
         self.policy: GatePolicy = policy or unlimited()
@@ -596,10 +711,13 @@ class MeteringMiddleware(Middleware):
         self.metered_tools = set(metered_tools) if metered_tools is not None else None
         self.redact: Redactor = redact or redact_secrets
         if redact_logs:
-            install_log_redaction(
-                namespaces=LOG_NAMESPACES if redact_logs is True
-                else (*LOG_NAMESPACES, *redact_logs)
-            )
+            if redact_logs is True:
+                namespaces = LOG_NAMESPACES
+            elif isinstance(redact_logs, str):
+                namespaces = (*LOG_NAMESPACES, redact_logs)
+            else:
+                namespaces = (*LOG_NAMESPACES, *redact_logs)
+            install_log_redaction(namespaces=namespaces)
         self._seq = itertools.count()
 
     def _authorize(self) -> str:
