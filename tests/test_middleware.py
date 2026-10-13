@@ -822,3 +822,31 @@ def test_no_escaping_hides_a_key(monkeypatch, secret, render):
     tail = secret[-6:]  # alphanumeric: no escaping touches it
     for text in (entry["error"], str(raised), repr(raised)):
         assert tail not in text, text
+
+
+@pytest.mark.parametrize(
+    "secret, text",
+    [
+        # Backslashes in the secret against a long run of them in the text.
+        ("abcdefgh" + "\\" * 6 + "ijk", "abcdefgh" + "\\" * 100 + "X"),
+        # A secret starting with punctuation (a PEM key) against a huge run.
+        ("-----BEGIN KEY-----abcdef", "\\" * 20000 + "X"),
+    ],
+    ids=["backslash-run", "leading-punctuation"],
+)
+def test_matching_stays_linear_on_hostile_text(secret, text):
+    """An error text is caller-influenced: the matcher must not backtrack
+    exponentially (or quadratically) on it."""
+    import time
+
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {"PEM_KEY": secret})
+    t0 = time.perf_counter()
+    redact(text)
+    assert time.perf_counter() - t0 < 1.0
+
+
+def test_lowercase_percent_encoding_is_redacted():
+    redact = mw_mod.secret_redactor(
+        headers=dict, environ=lambda: {"FAL_KEY": "abc/def+ghi/jklmno"}
+    )
+    assert "jklmno" not in redact("GET /x?k=abc%2fdef%2bghi%2fjklmno")

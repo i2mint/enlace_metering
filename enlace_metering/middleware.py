@@ -115,45 +115,67 @@ REDACTION_FAILED = "<error text withheld: redaction failed>"
 #: The named escapes ``repr()`` and JSON write for control characters.
 _NAMED_ESCAPES = {"\n": "n", "\r": "r", "\t": "t", "\b": "b", "\f": "f"}
 
+#: How many stacked layers of escaping a quoted secret is still recognised under
+#: (JSON body, embedded with ``!r``, in ``repr(exc)``, is three). Each layer
+#: doubles a backslash, so this bounds every backslash run the matcher accepts,
+#: which keeps matching linear on a hostile text full of backslashes.
+ESCAPE_LAYERS = 4
+_MAX_RUN = 2**ESCAPE_LAYERS  # backslashes one original backslash can become
+
+
+_LOWER_HEX_ESCAPE = re.compile(r"%[0-9A-F]{2}")
+
 
 def _escaped_char_pattern(c: str) -> str:
-    r"""A regex for the character *c* after any number of layers of escaping.
+    r"""A regex for the character *c* under up to :data:`ESCAPE_LAYERS` escapes.
 
     An ASCII letter or digit is never escaped. Any other character may follow a
-    run of backslashes (each ``repr()`` layer doubles them; JSON escapes ``"``,
-    ``\`` and, in some serialisers, ``/``), or be written as a named escape
-    (``\n``) or a hex code (``\x01``, ``\u00e9``).
+    run of backslashes (each ``repr()`` layer doubles them; JSON escapes ``"``
+    and, in some serialisers, ``/``), or be written as a named escape (``\n``)
+    or a hex code (``\x01``, ``é``).
     """
     if c.isascii() and c.isalnum():
         return c
+    pre = rf"\\{{0,{_MAX_RUN - 1}}}"
+    esc = rf"\\{{1,{_MAX_RUN - 1}}}"
     code = ord(c)
-    forms = [r"\\*" + re.escape(c)]
+    forms = [pre + re.escape(c)]
     if c in _NAMED_ESCAPES:
-        forms.append(r"\\+" + _NAMED_ESCAPES[c])
+        forms.append(esc + _NAMED_ESCAPES[c])
     if code < 0x100:
-        forms.append(rf"\\+x(?i:{code:02x})")
+        forms.append(rf"{esc}x(?i:{code:02x})")
     forms.append(
-        rf"\\+u(?i:{code:04x})" if code < 0x10000 else rf"\\+U(?i:{code:08x})"
+        rf"{esc}u(?i:{code:04x})" if code < 0x10000 else rf"{esc}U(?i:{code:08x})"
     )
     return "(?:" + "|".join(forms) + ")"
 
 
+def _run_pattern(c: str, k: int) -> str:
+    """A regex for *k* consecutive *c*: a backslash run is one bounded atom."""
+    if c == "\\":
+        return rf"\\{{{k},{k * _MAX_RUN}}}"
+    return _escaped_char_pattern(c) * k
+
+
 @lru_cache(maxsize=1024)
 def escape_tolerant_pattern(secret: str) -> re.Pattern:
-    r"""A pattern matching *secret* raw or escaped, however many layers deep.
+    r"""A pattern matching *secret* raw or escaped, up to :data:`ESCAPE_LAYERS` deep.
 
     Text that quotes a secret has often escaped it, sometimes more than once: a
     provider's JSON error body, embedded with ``!r`` in an exception message,
     then ``repr()`` of that exception in a ledger row. Matching each escape
     layer by layer always misses the next one, so this matches every layer at
-    once. (A character outside the Basic Multilingual Plane written as a JSON
-    surrogate pair is not matched.)
+    once. Every backslash run is bounded, so the match cannot backtrack
+    super-linearly however many backslashes the text holds. (A character
+    outside the Basic Multilingual Plane written as a JSON surrogate pair is not
+    matched.)
 
     >>> p = escape_tolerant_pattern('pa"ss/wd')
     >>> [bool(p.search(t)) for t in ('pa"ss/wd', r'"pa\"ss\/wd"', r"'pa\\\"ss/wd'")]
     [True, True, True]
     """
-    return re.compile("".join(map(_escaped_char_pattern, secret)))
+    runs = ((c, len(list(g))) for c, g in itertools.groupby(secret))
+    return re.compile("".join(_run_pattern(c, k) for c, k in runs))
 
 
 def _http_headers() -> dict[str, str]:
@@ -233,7 +255,9 @@ def secret_redactor(
         ``:``-separated part (fal keys are ``id:secret``). Each is matched however
         it was escaped (:func:`escape_tolerant_pattern`)."""
         yield value
-        yield quote(value, safe="")
+        encoded = quote(value, safe="")
+        yield encoded
+        yield _LOWER_HEX_ESCAPE.sub(lambda m: m.group().lower(), encoded)
         yield from value.split(":")
 
     def redact(text: str) -> str:
