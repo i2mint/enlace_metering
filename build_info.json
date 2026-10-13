@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-12T22:31:52Z",
+  "built_at": "2026-10-13T07:01:14Z",
   "package": {
     "name": "enlace_metering",
     "version": "0.0.1",
@@ -9,28 +9,28 @@
   },
   "git": {
     "available": true,
-    "commit": "e8f7311e70528c5780903c7444e1cee0e4c5e07f",
-    "short_commit": "e8f7311",
+    "commit": "ff28bca031307bd690998ca823ee06aa0b77e564",
+    "short_commit": "ff28bca",
     "branch": "main",
     "tags": [],
     "dirty": false,
     "remote_url": "https://github.com/i2mint/enlace_metering",
-    "commit_url": "https://github.com/i2mint/enlace_metering/commit/e8f7311e70528c5780903c7444e1cee0e4c5e07f",
+    "commit_url": "https://github.com/i2mint/enlace_metering/commit/ff28bca031307bd690998ca823ee06aa0b77e564",
     "error": null
   },
   "ci": {
     "provider": "github",
     "repository": "i2mint/enlace_metering",
-    "sha": "e8f7311e70528c5780903c7444e1cee0e4c5e07f",
+    "sha": "ff28bca031307bd690998ca823ee06aa0b77e564",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "38317053316",
-    "run_url": "https://github.com/i2mint/enlace_metering/actions/runs/38317053316",
+    "run_id": "38359901202",
+    "run_url": "https://github.com/i2mint/enlace_metering/actions/runs/38359901202",
     "server_url": "https://github.com"
   },
   "tools": {
-    "epythet": "0.2.12",
+    "epythet": "0.2.14",
     "sphinx": "9.1.0",
     "docutils": "0.22.4",
     "python": "3.12.15"
@@ -64,7 +64,7 @@
     "relation": "unknown",
     "error": null
   },
-  "reproduce": "git clone https://github.com/i2mint/enlace_metering && cd enlace_metering\ngit checkout e8f7311e70528c5780903c7444e1cee0e4c5e07f\npip install \"epythet==0.2.12\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "reproduce": "git clone https://github.com/i2mint/enlace_metering && cd enlace_metering\ngit checkout ff28bca031307bd690998ca823ee06aa0b77e564\npip install \"epythet==0.2.14\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
   "warnings": [],
   "alignment": {
     "aligned": true,
