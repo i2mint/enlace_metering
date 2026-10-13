@@ -1,6 +1,8 @@
 """Tests for the FastMCP metering middleware (needs fastmcp)."""
 
 import asyncio
+import json
+import sys
 from datetime import datetime, timezone
 
 import pytest
@@ -626,8 +628,6 @@ def test_a_logged_traceback_is_redacted(monkeypatch):
 
 
 def test_a_clean_record_is_untouched(monkeypatch):
-    import logging
-
     def emit(logger):
         try:
             raise RuntimeError("nothing secret")
@@ -713,6 +713,9 @@ def test_other_namespaces_are_untouched():
     assert record.msg == "x %s" and record.args == ("y",)
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 11), reason="ExceptionGroup and add_note are 3.11+"
+)
 def test_a_key_inside_an_exception_group_is_not_reraised(monkeypatch):
     import traceback
 
@@ -723,7 +726,7 @@ def test_a_key_inside_an_exception_group_is_not_reraised(monkeypatch):
     async def _call(ctx):
         inner = RuntimeError("provider failed")
         inner.add_note(f"key was {_ENV_KEY}")
-        raise ExceptionGroup("tool failed", [inner])
+        raise ExceptionGroup("tool failed", [inner])  # noqa: F821 -- 3.11+, skipped below that
 
     entry, raised = _failing_call({}, _call)
     assert _ENV_KEY not in "".join(traceback.format_exception(raised))
@@ -763,3 +766,28 @@ def test_a_password_in_any_url_is_redacted():
     url = "postgres://app:hunter2hunter2@db.internal/main"
     redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {"DATABASE_URL": url})
     assert "hunter2hunter2" not in redact(f"cannot connect: {url}")
+
+
+#: A credential with the characters repr() and JSON escape.
+_ESCAPED_KEY = 'pa\\ss"wo\'rd-0123456'
+
+
+@pytest.mark.parametrize(
+    "render",
+    [lambda k: f"smtp refused {k}", lambda k: "provider said " + json.dumps({"k": k})],
+    ids=["plain", "json-body"],
+)
+def test_a_key_with_escaped_characters_is_redacted_everywhere(monkeypatch, render):
+    """The ledger stores repr(exc), and a provider may quote a key inside a JSON
+    body: both escape a backslash or quote, so the raw value never matches."""
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    monkeypatch.setenv("SMTP_PASS", _ESCAPED_KEY)
+
+    async def _call(ctx):
+        raise RuntimeError(render(_ESCAPED_KEY))
+
+    store = {}
+    entry, raised = _failing_call(store, _call, redact_logs=False)
+    for text in (str(store), str(raised), repr(raised)):
+        assert "wo\\'rd-0123456" not in text and "wo'rd-0123456" not in text, text
+    assert "<redacted:env:SMTP_PASS>" in entry["error"]

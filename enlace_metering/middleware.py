@@ -27,6 +27,7 @@ recorded) by adding the policy gate + a proposed-cost estimate hook.
 from __future__ import annotations
 
 import itertools
+import json
 import logging
 import os
 import re
@@ -111,6 +112,32 @@ MIN_SECRET_CHARS = 8
 REDACTION_FAILED = "<error text withheld: redaction failed>"
 
 
+#: How text quoting a secret may have escaped it: ``repr()`` (backslashes doubled,
+#: plus whichever quote it chose) and JSON (a provider's error body).
+_ESCAPES = (
+    lambda s: s.replace("\\", "\\\\"),
+    lambda s: s.replace("\\", "\\\\").replace("'", "\\'"),
+    lambda s: s.replace("\\", "\\\\").replace('"', '\\"'),
+    lambda s: json.dumps(s)[1:-1],
+)
+
+#: Escapes stack: a ledger row is ``repr()`` of an exception whose message may
+#: quote a provider's JSON body, so a secret can arrive escaped twice.
+ESCAPE_DEPTH = 2
+
+
+def _escaped_forms(value: str, *, depth: int = ESCAPE_DEPTH) -> set[str]:
+    """*value* and every form :data:`_ESCAPES` gives it, applied up to *depth* times.
+
+    >>> sorted(_escaped_forms('a"b', depth=1))
+    ['a"b', 'a\\\\"b']
+    """
+    forms = {value}
+    for _ in range(depth):
+        forms |= {escape(f) for f in forms for escape in _ESCAPES}
+    return forms
+
+
 def _http_headers() -> dict[str, str]:
     """All headers of the in-flight HTTP request (lowercased names), or ``{}``."""
     try:
@@ -147,7 +174,8 @@ def secret_redactor(
     - the process environment (names matching ``env_pattern``, plus ``env_names``):
       the host's own provider keys, replaced by ``<redacted:env:{NAME}>``.
 
-    Each secret is also matched URL-encoded and per ``:``-separated part. All are
+    Each secret is also matched escaped as ``repr()`` and JSON escape it (up to
+    :data:`ESCAPE_DEPTH` layers), URL-encoded, and per ``:``-separated part. All are
     replaced longest first, so one that contains another is never half-replaced.
     A provider that quotes only a truncated prefix is out of reach. ``None`` for a
     pattern turns that source off.
@@ -183,9 +211,9 @@ def secret_redactor(
                     yield value, f"env:{name}"
 
     def variants(value: str):
-        """The forms a provider may quote a secret in: as is, URL-encoded, and each
-        ``:``-separated part (fal keys are ``id:secret``)."""
-        yield value
+        """The forms a provider may quote a secret in: as is or escaped (repr, JSON),
+        URL-encoded, and each ``:``-separated part (fal keys are ``id:secret``)."""
+        yield from _escaped_forms(value)
         yield quote(value, safe="")
         yield from value.split(":")
 
