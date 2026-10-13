@@ -126,35 +126,36 @@ _MAX_RUN = 2**ESCAPE_LAYERS  # backslashes one original backslash can become
 _LOWER_HEX_ESCAPE = re.compile(r"%[0-9A-F]{2}")
 
 
-def _escaped_char_pattern(c: str) -> str:
-    r"""A regex for the character *c* under up to :data:`ESCAPE_LAYERS` escapes.
-
-    An ASCII letter or digit is never escaped. Any other character may follow a
-    run of backslashes (each ``repr()`` layer doubles them; JSON escapes ``"``
-    and, in some serialisers, ``/``), or be written as a named escape (``\n``)
-    or a hex code (``\x01``, ``é``).
-    """
-    if c.isascii() and c.isalnum():
-        return c
-    pre = rf"\\{{0,{_MAX_RUN - 1}}}"
-    esc = rf"\\{{1,{_MAX_RUN - 1}}}"
+def _escape_codes(c: str) -> list[str]:
+    """How an escape writes *c* after its backslashes: named (``n``) or hex."""
     code = ord(c)
-    forms = [pre + re.escape(c)]
-    if c in _NAMED_ESCAPES:
-        forms.append(esc + _NAMED_ESCAPES[c])
+    codes = [_NAMED_ESCAPES[c]] if c in _NAMED_ESCAPES else []
     if code < 0x100:
-        forms.append(rf"{esc}x(?i:{code:02x})")
-    forms.append(
-        rf"{esc}u(?i:{code:04x})" if code < 0x10000 else rf"{esc}U(?i:{code:08x})"
-    )
-    return "(?:" + "|".join(forms) + ")"
+        codes.append(f"x(?i:{code:02x})")
+    codes.append(f"u(?i:{code:04x})" if code < 0x10000 else f"U(?i:{code:08x})")
+    return codes
 
 
-def _run_pattern(c: str, k: int) -> str:
-    """A regex for *k* consecutive *c*: a backslash run is one bounded atom."""
-    if c == "\\":
-        return rf"\\{{{k},{k * _MAX_RUN}}}"
-    return _escaped_char_pattern(c) * k
+def _atom(backslashes: int, c: str = "") -> str:
+    r"""A regex for *backslashes* backslashes of the secret followed by *c*.
+
+    The backslash run and the character after it are ONE atom with ONE bounded
+    quantifier: two quantifiers side by side could split a run of backslashes
+    between them in many ways, and that multiplies across the secret. Each
+    original backslash becomes up to :data:`_MAX_RUN` of them; a character
+    other than an ASCII letter or digit may follow up to ``_MAX_RUN - 1`` more
+    (each ``repr()`` layer doubles them; JSON escapes ``"`` and, in some
+    serialisers, ``/``), or be written as a named or hex escape (``\n``,
+    ``\x01``, ``\u00e9``).
+    """
+    k, top = backslashes, backslashes * _MAX_RUN
+    if not c:
+        return rf"\\{{{k},{top}}}"
+    if c.isascii() and c.isalnum():
+        return (rf"\\{{{k},{top}}}" if k else "") + c
+    top += _MAX_RUN - 1
+    codes = "|".join(_escape_codes(c))
+    return rf"(?:\\{{{k},{top}}}{re.escape(c)}|\\{{{k + 1},{top}}}(?:{codes}))"
 
 
 @lru_cache(maxsize=1024)
@@ -165,17 +166,26 @@ def escape_tolerant_pattern(secret: str) -> re.Pattern:
     provider's JSON error body, embedded with ``!r`` in an exception message,
     then ``repr()`` of that exception in a ledger row. Matching each escape
     layer by layer always misses the next one, so this matches every layer at
-    once. Every backslash run is bounded, so the match cannot backtrack
-    super-linearly however many backslashes the text holds. (A character
-    outside the Basic Multilingual Plane written as a JSON surrogate pair is not
-    matched.)
+    once. Every backslash run is bounded and owned by one atom (:func:`_atom`),
+    so the match cannot backtrack super-linearly however many backslashes the
+    text holds. Not matched: a character outside the Basic Multilingual Plane
+    written as a JSON surrogate pair, and a backslash of the secret written as a
+    hex code (``\x5c``), which neither ``repr()`` nor JSON produces.
 
     >>> p = escape_tolerant_pattern('pa"ss/wd')
     >>> [bool(p.search(t)) for t in ('pa"ss/wd', r'"pa\"ss\/wd"', r"'pa\\\"ss/wd'")]
     [True, True, True]
     """
-    runs = ((c, len(list(g))) for c, g in itertools.groupby(secret))
-    return re.compile("".join(_run_pattern(c, k) for c, k in runs))
+    atoms, backslashes = [], 0
+    for c in secret:
+        if c == "\\":
+            backslashes += 1
+        else:
+            atoms.append(_atom(backslashes, c))
+            backslashes = 0
+    if backslashes:
+        atoms.append(_atom(backslashes))
+    return re.compile("".join(atoms))
 
 
 def _http_headers() -> dict[str, str]:

@@ -850,3 +850,15 @@ def test_lowercase_percent_encoding_is_redacted():
         headers=dict, environ=lambda: {"FAL_KEY": "abc/def+ghi/jklmno"}
     )
     assert "jklmno" not in redact("GET /x?k=abc%2fdef%2bghi%2fjklmno")
+
+
+def test_backslash_punctuation_pairs_stay_linear():
+    """Adjacent backslash atoms must not split a run between them (review)."""
+    import time
+
+    secret = "abcdefgh" + "\\." * 7 + "Q"
+    text = "abcdefgh" + ("\\" * 16 + ".") * 7 + "X"
+    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {"X_TOKEN": secret})
+    t0 = time.perf_counter()
+    redact(text)
+    assert time.perf_counter() - t0 < 1.0
