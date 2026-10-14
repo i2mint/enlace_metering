@@ -1,4 +1,4 @@
-> built 2026-10-13 07:01 UTC from ff28bca (main) · enlace_metering 0.0.1. Details: build_info.json
+> built 2026-10-14 00:40 UTC from 00f81cd (main) · enlace_metering 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -75,7 +75,7 @@ So a new BYO-key header or a new provider key in the environment is covered with
 
 Each secret is also matched URL-encoded and per `:`-separated part (fal keys are `id:secret`), and any env var whose value is a URL with a password in it is redacted whatever its name. Names that describe a credential rather than hold one (`S3_KEY_PREFIX`, `SSH_KEY_PATH`, `TOKEN_URL`, `AWS_ACCESS_KEY_ID`) are left alone. A provider that quotes only a truncated prefix is out of reach.
 
-fastmcp logs a failing tool’s traceback *before* the middleware sees the exception, so the middleware also redacts fastmcp’s log records (`install_log_redaction()`, a chained `LogRecordFactory`, so loggers created later are covered too): what reaches the connector’s journal is redacted the same way, with the in-flight call’s redactor. `redact_logs=("mypkg",)` adds the connector’s own logger namespaces; `redact_logs=False` opts out. `RedactingLogFilter` does the same for a logger or handler of your choice.
+fastmcp logs a failing tool’s traceback *before* the middleware sees the exception, so the middleware also redacts log records, with the in-flight call’s redactor (`install_log_redaction()`, a chained `LogRecordFactory`, so loggers created later are covered too). By default (`redact_logs="*"`, i.e. `ALL_LOGGERS`) that is **every** record in the process: provider SDKs (`httpx`, `fal_client`, ElevenLabs’ `fern`), the root logger, `uvicorn.error`, `asyncio`, plus what `warnings.warn` shows (`warnings.showwarning` is wrapped, so a warning still goes where it went before), the traceback an uncaught exception prints in any thread, and what an exception ignored in `__del__` prints (`sys.unraisablehook`). A dirty uncaught exception still reaches the previous hook (a crash reporter, say), as a stand-in that prints redacted. A dirty log argument is redacted in place, so formatters that unpack `record.args` (uvicorn’s access log) keep working. To cover records logged at import time too, call `install_log_redaction(namespaces="*")` as the first statement of `server.py`. `redact_logs=("mypkg",)` limits it to fastmcp plus those namespaces, `redact_logs=True` to fastmcp alone, and `redact_logs=False` opts out. The install also wraps `logging.Logger.handle`, so every record routed through any logger is redacted, `extra=` fields included, whichever handler emits it: handlers configured later (uvicorn’s `dictConfig` at `mcp.run()`), `logging.lastResort`, and records that never went through the factory (`logging.makeLogRecord`, a logger class with its own `makeRecord`). `RedactingLogFilter` does the same job for any logger or handler you choose. A caller’s bring-your-own header key is known process-wide while their call is in flight and for a while after (the last `RECENT_CALLS_KEPT` = 64 calls, at most `RECENT_CALLS_SECONDS` = 300 s), so a record logged or an exception raised from a raw `threading.Thread` (which does not inherit the request’s context), even one that outlives the call, is redacted of it too; past those bounds it is not. Out of reach, like a truncated prefix: a key that a formatter shortened before it was logged, such as asyncio’s default exception handler, whose `Handle` repr `reprlib`-truncates a callback’s arguments to head and tail (`'sk-abcde...vwxyz'`), and text a program writes to stderr itself (`print(..., file=sys.stderr)`).
 
 ## Install
 
@@ -558,7 +558,7 @@ Always allow — the meter still records, but nothing is gated (e.g. the owner).
 
 # About this build
 
-This documentation was built on **2026-10-13 07:01 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/ff28bca031307bd690998ca823ee06aa0b77e564"><code>ff28bca</code></a> on branch <code>main</code>, for **enlace_metering 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-14 00:40 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/00f81cd8591095a6b785237d6b0e0445338f519f"><code>00f81cd</code></a> on branch <code>main</code>, for **enlace_metering 0.0.1** (from <code>pyproject.toml</code>).
 
 #### NOTE
 Nothing suggests a mismatch: the tree was clean at the commit above, and the documented version is the one on PyPI.
@@ -567,7 +567,7 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 |                     |                                                                                                                                                               |
 |---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/enlace_metering/commit/ff28bca031307bd690998ca823ee06aa0b77e564"><code>ff28bca031307bd690998ca823ee06aa0b77e564</code></a> |
+| Commit              | <a href="https://github.com/i2mint/enlace_metering/commit/00f81cd8591095a6b785237d6b0e0445338f519f"><code>00f81cd8591095a6b785237d6b0e0445338f519f</code></a> |
 | Branch              | <code>main</code>                                                                                                                                             |
 | Tags at this commit | none                                                                                                                                                          |
 | Working tree        | clean                                                                                                                                                         |
@@ -578,15 +578,15 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 |              |                                                                                              |
 |--------------|----------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/enlace_metering</code>                                                          |
-| Run          | <a href="https://github.com/i2mint/enlace_metering/actions/runs/38359901202">38359901202</a> |
+| Run          | <a href="https://github.com/i2mint/enlace_metering/actions/runs/38491283013">38491283013</a> |
 | Ref          | <code>refs/heads/main</code>                                                                 |
-| Event commit | <code>ff28bca031307bd690998ca823ee06aa0b77e564</code> (in the history of the built commit)   |
+| Event commit | <code>00f81cd8591095a6b785237d6b0e0445338f519f</code> (in the history of the built commit)   |
 
 ## Tools
 
 |          |         |
 |----------|---------|
-| epythet  | 0.2.14  |
+| epythet  | 0.2.17  |
 | Sphinx   | 9.1.0   |
 | docutils | 0.22.4  |
 | Python   | 3.12.15 |
@@ -611,8 +611,8 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 ```bash
 git clone https://github.com/i2mint/enlace_metering && cd enlace_metering
-git checkout ff28bca031307bd690998ca823ee06aa0b77e564
-pip install "epythet==0.2.14"
+git checkout 00f81cd8591095a6b785237d6b0e0445338f519f
+pip install "epythet==0.2.17"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 

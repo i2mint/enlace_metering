@@ -5,7 +5,7 @@ orphan: true
 
 # About this build
 
-This documentation was built on **2026-10-13 07:01 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/ff28bca031307bd690998ca823ee06aa0b77e564"><code>ff28bca</code></a> on branch <code>main</code>, for **enlace&#95;metering 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-10-14 00:40 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/00f81cd8591095a6b785237d6b0e0445338f519f"><code>00f81cd</code></a> on branch <code>main</code>, for **enlace&#95;metering 0.0.1** (from <code>pyproject.toml</code>).
 
 :::{note}
 Nothing suggests a mismatch: the tree was clean at the commit above, and the documented version is the one on PyPI.
@@ -15,7 +15,7 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 | | |
 |---|---|
-| Commit | <a href="https://github.com/i2mint/enlace_metering/commit/ff28bca031307bd690998ca823ee06aa0b77e564"><code>ff28bca031307bd690998ca823ee06aa0b77e564</code></a> |
+| Commit | <a href="https://github.com/i2mint/enlace_metering/commit/00f81cd8591095a6b785237d6b0e0445338f519f"><code>00f81cd8591095a6b785237d6b0e0445338f519f</code></a> |
 | Branch | <code>main</code> |
 | Tags at this commit | none |
 | Working tree | clean |
@@ -26,15 +26,15 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 | | |
 |---|---|
 | Repository | <code>i2mint/enlace&#95;metering</code> |
-| Run | <a href="https://github.com/i2mint/enlace_metering/actions/runs/38359901202">38359901202</a> |
+| Run | <a href="https://github.com/i2mint/enlace_metering/actions/runs/38491283013">38491283013</a> |
 | Ref | <code>refs/heads/main</code> |
-| Event commit | <code>ff28bca031307bd690998ca823ee06aa0b77e564</code> (in the history of the built commit) |
+| Event commit | <code>00f81cd8591095a6b785237d6b0e0445338f519f</code> (in the history of the built commit) |
 
 ## Tools
 
 | | |
 |---|---|
-| epythet | 0.2.14 |
+| epythet | 0.2.17 |
 | Sphinx | 9.1.0 |
 | docutils | 0.22.4 |
 | Python | 3.12.15 |
@@ -59,8 +59,8 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 ```bash
 git clone https://github.com/i2mint/enlace_metering && cd enlace_metering
-git checkout ff28bca031307bd690998ca823ee06aa0b77e564
-pip install "epythet==0.2.14"
+git checkout 00f81cd8591095a6b785237d6b0e0445338f519f
+pip install "epythet==0.2.17"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 
