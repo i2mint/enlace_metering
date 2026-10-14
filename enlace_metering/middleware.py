@@ -37,6 +37,7 @@ import time
 import traceback
 import warnings
 import weakref
+from collections import deque
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -163,7 +164,6 @@ def _atom(backslashes: int, c: str = "") -> str:
     return rf"(?:\\{{{k},{top}}}{re.escape(c)}|\\{{{k + 1},{top}}}(?:{codes}))"
 
 
-@lru_cache(maxsize=1024)
 def escape_tolerant_pattern(secret: str) -> re.Pattern:
     r"""A pattern matching *secret* raw or escaped, up to :data:`ESCAPE_LAYERS` deep.
 
@@ -191,6 +191,13 @@ def escape_tolerant_pattern(secret: str) -> re.Pattern:
     if backslashes:
         atoms.append(_atom(backslashes))
     return re.compile("".join(atoms))
+
+
+#: :func:`escape_tolerant_pattern`, cached: for the host's own (environment)
+#: secrets only, which live as long as the process anyway. A caller's key is
+#: compiled through the uncached function and kept only while
+#: :func:`inflight_request_secrets` still lists it.
+_cached_pattern = lru_cache(maxsize=1024)(escape_tolerant_pattern)
 
 
 def _http_headers() -> dict[str, str]:
@@ -225,28 +232,66 @@ def _header_secrets(
                 yield value.rsplit(None, 1)[-1], label
 
 
+#: How many metered calls that have *ended* keep their credential header values
+#: known (see :func:`inflight_request_secrets`), and for how many seconds at most.
+#: A worker thread a tool started can outlive the call and still log or raise
+#: with the caller's key; past either bound it is out of reach.
+RECENT_CALLS_KEPT = 64
+RECENT_CALLS_SECONDS = 300.0
+
 #: Credential header values of every metered call in flight, process-wide
 #: (``(value, header name) -> number of calls carrying it``). A record logged
 #: from a thread the call did not copy its context into cannot see the request's
 #: headers, so the fallback redactor reads them here.
 _INFLIGHT: dict[tuple[str, str], int] = {}
+#: ``(expires at, pairs)`` of recently ended calls, oldest first.
+_RECENT: "deque[tuple[float, tuple[tuple[str, str], ...]]]" = deque()
 _INFLIGHT_LOCK = threading.Lock()
-#: Immutable view of :data:`_INFLIGHT`, rebuilt under the lock, read without it.
+#: Immutable view of in-flight + recent pairs, rebuilt under the lock, read
+#: without it, and when it next needs pruning.
 _INFLIGHT_VIEW: tuple[tuple[str, str], ...] = ()
+_VIEW_EXPIRES = float("inf")
+#: Compiled forms of the request secrets in :data:`_INFLIGHT_VIEW` (and only
+#: those): ``(pair, min_chars) -> {form: (pattern, mark)}``.
+_REQUEST_FORMS: dict[tuple, dict[str, tuple[re.Pattern, str]]] = {}
 
 
 def inflight_request_secrets() -> tuple[tuple[str, str], ...]:
-    """The credential header values of every metered call in flight right now.
+    """The credential header values of every metered call in flight right now,
+    and of the last :data:`RECENT_CALLS_KEPT` calls that ended within
+    :data:`RECENT_CALLS_SECONDS`.
 
-    :class:`MeteringMiddleware` registers a call's values on entry and removes
-    them on exit, so a redactor running outside the request's context (a raw
-    ``threading.Thread``, an uncaught-exception hook) still knows them.
+    :class:`MeteringMiddleware` registers a call's values on entry and moves
+    them to the recent ring on exit, so a redactor running outside the request's
+    context (a raw ``threading.Thread``, even one that outlives the call, an
+    uncaught-exception hook) still knows them.
     """
+    if time.monotonic() >= _VIEW_EXPIRES:
+        with _INFLIGHT_LOCK:
+            _refresh_inflight_view()
     return _INFLIGHT_VIEW
 
 
+def _refresh_inflight_view() -> None:
+    """Prune the recent ring, rebuild the view, drop forms no longer in it.
+    Call with :data:`_INFLIGHT_LOCK` held."""
+    global _INFLIGHT_VIEW, _VIEW_EXPIRES
+    now = time.monotonic()
+    kept = [entry for entry in _RECENT if entry[0] > now]
+    kept = kept[len(kept) - RECENT_CALLS_KEPT:] if RECENT_CALLS_KEPT > 0 else []
+    _RECENT.clear()
+    _RECENT.extend(kept)
+    view = dict.fromkeys(_INFLIGHT)
+    for _, pairs in _RECENT:
+        view.update(dict.fromkeys(pairs))
+    _INFLIGHT_VIEW = tuple(view)
+    _VIEW_EXPIRES = min((at for at, _ in _RECENT), default=float("inf"))
+    for key in [k for k in _REQUEST_FORMS if k[0] not in view]:
+        _REQUEST_FORMS.pop(key, None)
+
+
 def _register_inflight(pairs: Iterable[tuple[str, str]], delta: int) -> None:
-    global _INFLIGHT_VIEW
+    pairs = tuple(pairs)
     with _INFLIGHT_LOCK:
         for pair in pairs:
             count = _INFLIGHT.get(pair, 0) + delta
@@ -254,7 +299,9 @@ def _register_inflight(pairs: Iterable[tuple[str, str]], delta: int) -> None:
                 _INFLIGHT[pair] = count
             else:
                 _INFLIGHT.pop(pair, None)
-        _INFLIGHT_VIEW = tuple(_INFLIGHT)
+        if delta < 0 and pairs and RECENT_CALLS_KEPT > 0 and RECENT_CALLS_SECONDS > 0:
+            _RECENT.append((time.monotonic() + RECENT_CALLS_SECONDS, pairs))
+        _refresh_inflight_view()
 
 
 def _variants(value: str) -> Iterable[str]:
@@ -268,22 +315,30 @@ def _variants(value: str) -> Iterable[str]:
     yield from value.split(":")
 
 
-@lru_cache(maxsize=256)
-def _replacements(
-    pairs: tuple[tuple[str, str], ...], min_chars: int
-) -> tuple[tuple[re.Pattern, str], ...]:
-    """``(pattern, mark)`` for every form of every secret, longest first, so one
-    that contains another is never half-replaced. Cached: the secrets rarely change
-    between two records, and building this is most of a redaction's cost."""
-    found: dict[str, str] = {}
+def _forms(
+    pairs: Iterable[tuple[str, str]], min_chars: int, compile: Callable[[str], re.Pattern]
+) -> dict[str, tuple[re.Pattern, str]]:
+    """``{form: (pattern, mark)}`` for every form of every secret (first label wins)."""
+    found: dict[str, tuple[re.Pattern, str]] = {}
     for value, label in pairs:
         for form in _variants(value):
-            if len(form) >= min_chars:
-                found.setdefault(form, label)
-    return tuple(
-        (escape_tolerant_pattern(form), f"<redacted:{label}>")
-        for form, label in sorted(found.items(), key=lambda kv: -len(kv[0]))
-    )
+            if len(form) >= min_chars and form not in found:
+                found[form] = (compile(form), f"<redacted:{label}>")
+    return found
+
+
+def _request_forms(pair: tuple[str, str], min_chars: int) -> dict:
+    """The compiled forms of one caller secret: kept while
+    :func:`inflight_request_secrets` lists it, compiled afresh otherwise."""
+    key = (pair, min_chars)
+    forms = _REQUEST_FORMS.get(key)
+    if forms is None:
+        forms = _forms((pair,), min_chars, escape_tolerant_pattern)
+        if pair in _INFLIGHT_VIEW:
+            with _INFLIGHT_LOCK:
+                if pair in _INFLIGHT_VIEW:
+                    _REQUEST_FORMS[key] = forms
+    return forms
 
 
 def secret_redactor(
@@ -306,8 +361,9 @@ def secret_redactor(
       token). This is why it must run while the request is still in flight — inside
       the middleware's error handling, which is where :class:`MeteringMiddleware`
       calls it. Outside the request's context (a raw thread), the credential
-      headers of every metered call in flight (``inflight``, by default
-      :func:`inflight_request_secrets`) stand in for them;
+      headers of every metered call in flight or recently ended (``inflight``,
+      by default :func:`inflight_request_secrets`) stand in for them. A caller's
+      key is compiled into a pattern only for as long as that lists it;
     - the process environment (names matching ``env_pattern``, plus ``env_names``):
       the host's own provider keys, replaced by ``<redacted:env:{NAME}>``. Which
       variables hold secrets is worked out again only when the environment changes.
@@ -327,7 +383,8 @@ def secret_redactor(
     """
     extra_names = frozenset(env_names)
     use_env = env_pattern is not None or bool(extra_names)
-    env_cache: list = [None, ()]  # [snapshot of the environment, its secrets]
+    env_cache: list = [None, ()]  # [snapshot of the environment, its replacements]
+    merged_cache: list = [None, None, ()]  # [request pairs, env replacements, merged]
 
     def is_env_secret(name: str, value: str) -> bool:
         return name in extra_names or (
@@ -338,7 +395,11 @@ def secret_redactor(
             )
         )
 
-    def env_secrets() -> tuple[tuple[str, str], ...]:
+    def env_replacements() -> tuple:
+        """``(form, pattern, mark)`` for the environment's secrets, longest first;
+        worked out again only when the environment changes."""
+        if not use_env:
+            return ()
         env = environ()
         # ``os.environ`` decodes every item it yields, which costs far more than
         # the redaction itself; its raw store compares in microseconds.
@@ -348,29 +409,58 @@ def secret_redactor(
         if current == cached_snapshot:
             return cached
         snapshot = dict(current)  # taken before reading, so a change re-runs this
-        found = []
+        pairs = []
         for name, value in env.items():
             value = str(value).strip()
             if is_env_secret(name, value):
-                found.append((value, f"env:{name}"))
-        env_cache[:] = [snapshot, tuple(found)]
+                pairs.append((value, f"env:{name}"))
+        found = _forms(pairs, min_chars, _cached_pattern)
+        env_cache[:] = [snapshot, _longest_first(found)]
         return env_cache[1]
 
-    def candidates() -> tuple[tuple[str, str], ...]:
-        pairs: list[tuple[str, str]] = []
-        if header_pattern is not None:
-            pairs.extend(_header_secrets(headers(), header_pattern))
-            pairs.extend(inflight())
-        if use_env:
-            pairs.extend(env_secrets())
+    def request_pairs() -> tuple:
+        if header_pattern is None:
+            return ()
+        pairs = dict.fromkeys(_header_secrets(headers(), header_pattern))
+        pairs.update(dict.fromkeys(inflight()))
         return tuple(pairs)
 
+    def replacements() -> tuple:
+        pairs, env_items = request_pairs(), env_replacements()
+        if not pairs:
+            if merged_cache[0] is not None:
+                merged_cache[:] = [None, None, ()]  # forget the last caller's key
+            return env_items
+        cached_pairs, cached_env, merged = merged_cache
+        if cached_env is env_items and cached_pairs == pairs:
+            return merged
+        found: dict[str, tuple[re.Pattern, str]] = {}
+        for pair in pairs:
+            for form, item in _request_forms(pair, min_chars).items():
+                found.setdefault(form, item)
+        for form, pattern, mark in env_items:
+            found.setdefault(form, (pattern, mark))
+        merged = _longest_first(found)
+        # One slot, overwritten by the next set of secrets: holds nothing the
+        # in-flight registry does not still hold.
+        merged_cache[:] = [pairs, env_items, merged]
+        return merged
+
     def redact(text: str) -> str:
-        for pattern, mark in _replacements(candidates(), min_chars):
+        for _form, pattern, mark in replacements():
             text = pattern.sub(lambda _m: mark, text)
         return text
 
     return redact
+
+
+def _longest_first(found: Mapping[str, tuple[re.Pattern, str]]) -> tuple:
+    """``(form, pattern, mark)`` longest form first, so a secret that contains
+    another is never half-replaced."""
+    return tuple(
+        (form, pattern, mark)
+        for form, (pattern, mark) in sorted(found.items(), key=lambda kv: -len(kv[0]))
+    )
 
 
 def request_secret_redactor(
@@ -485,15 +575,20 @@ def _scrubbed_exception(
 _CURRENT_REDACTOR: ContextVar[Optional[Redactor]] = ContextVar(
     "enlace_metering_redactor", default=None
 )
-#: Set while :func:`redact_log_record` runs (the re-entrancy guard).
-_REDACTING_RECORD: ContextVar[bool] = ContextVar(
-    "enlace_metering_redacting_record", default=False
-)
-#: Records the installed record factory has already redacted, with what it left
-#: in them, so a :class:`RedactingLogFilter` on their handler only redacts their
-#: ``extra=`` fields (set after the factory ran) rather than the whole record
-#: again, unless something was put in after the factory (``makeLogRecord``).
-_FACTORY_REDACTED: "weakref.WeakKeyDictionary[logging.LogRecord, tuple]" = (
+#: How deep in record redaction this context is: 1 while a record is redacted,
+#: 2 while a record logged *during* that one is (the re-entrancy guard).
+_REDACTING_DEPTH: ContextVar[int] = ContextVar("enlace_metering_redacting_depth", default=0)
+
+#: A record logged while another is redacted (by an argument's ``__repr__``, a
+#: warning, a host redactor) is redacted normally down to this depth; one logged
+#: deeper is withheld, since redacting it could recurse without end.
+MAX_REDACTION_DEPTH = 1
+
+#: Records already redacted, with what that left in them and whether their
+#: ``extra=`` fields were done too, so the next pass (the factory, then
+#: ``Logger.handle``, then a :class:`RedactingLogFilter`) only does what is left,
+#: unless something was put in since (``makeLogRecord`` fills a factory record).
+_REDACTED: "weakref.WeakKeyDictionary[logging.LogRecord, tuple]" = (
     weakref.WeakKeyDictionary()
 )
 
@@ -501,15 +596,6 @@ _FACTORY_REDACTED: "weakref.WeakKeyDictionary[logging.LogRecord, tuple]" = (
 def _fingerprint(record: logging.LogRecord) -> tuple:
     return (record.msg, record.args, record.exc_info, record.stack_info)
 
-
-def _unchanged_since_factory(record: logging.LogRecord) -> bool:
-    try:
-        before = _FACTORY_REDACTED.get(record)
-    except TypeError:
-        return False
-    return before is not None and all(
-        a is b for a, b in zip(before, _fingerprint(record))
-    )
 
 #: The marker every hook and factory this module installs carries (idempotence).
 _MARK = "_enlace_metering_redacting"
@@ -522,8 +608,13 @@ def _current_redactor() -> Redactor:
 
 
 def _withhold(record: logging.LogRecord) -> None:
+    """Withhold every text of ``record``: message, traceback, stack and every
+    ``extra=`` field (a JSON or ``%(field)s`` handler emits those too)."""
     record.msg, record.args = REDACTION_FAILED, None
     record.exc_info = record.exc_text = record.stack_info = None
+    for key in list(record.__dict__):
+        if key not in _STANDARD_RECORD_ATTRS:
+            setattr(record, key, REDACTION_FAILED)
 
 
 def redact_log_record(record: logging.LogRecord) -> None:
@@ -534,24 +625,47 @@ def redact_log_record(record: logging.LogRecord) -> None:
     A dirty argument is replaced by its redacted text and the rest of
     ``record.args`` keeps its shape (formatters such as uvicorn's access log
     unpack it); a dirty traceback is replaced by its redacted text. If redaction
-    fails, the record's text is withheld. A record logged *while* a record is
-    being redacted (by a host redactor, say) cannot be redacted in turn, so its
-    text is withheld too, except this module's own fixed-text warning. Never
-    raises (it runs inside the caller's logging call) and never drops a record.
+    fails, the record's text is withheld. A record logged while another is being
+    redacted is redacted normally; one logged deeper than
+    :data:`MAX_REDACTION_DEPTH` is withheld whole (it could recurse without end),
+    except this module's own fixed-text warning. A record already redacted and
+    unchanged since is not redacted again. Never raises (it runs inside the
+    caller's logging call) and never drops a record.
     """
-    if _REDACTING_RECORD.get():
-        if record.name != _logger.name:
-            _withhold(record)
-        return
-    _redact_guarded(record, extras=True)
+    _redact_once(record, extras=True)
 
 
-def _redact_guarded(record: logging.LogRecord, *, extras: bool) -> None:
-    token = _REDACTING_RECORD.set(True)
+def _redact_once(record: logging.LogRecord, *, extras: bool) -> None:
+    depth = _REDACTING_DEPTH.get()
+    if depth and record.name == _logger.name:
+        return  # fixed text, logged by this module while redacting
     try:
-        _redact_log_record(record, extras=extras)
-    finally:
-        _REDACTING_RECORD.reset(token)
+        if depth > MAX_REDACTION_DEPTH:
+            _withhold(record)
+            return
+        try:
+            done = _REDACTED.get(record)
+        except TypeError:  # a record type that takes no weak reference
+            done = None
+        unchanged = done is not None and all(
+            a is b for a, b in zip(done[0], _fingerprint(record))
+        )
+        if unchanged and (done[1] or not extras):
+            return
+        token = _REDACTING_DEPTH.set(depth + 1)
+        try:
+            if unchanged:  # only the extra= fields set since the last pass
+                _redact_extra_fields(record, _current_redactor())
+            else:
+                _redact_log_record(record, extras=extras)
+        finally:
+            _REDACTING_DEPTH.reset(token)
+        try:
+            _REDACTED[record] = (_fingerprint(record), extras)
+        except TypeError:
+            pass
+    except Exception:  # noqa: BLE001 — never break the caller's logging call
+        _withhold(record)
 
 
 def _redact_log_record(record: logging.LogRecord, *, extras: bool) -> None:
@@ -668,18 +782,7 @@ class RedactingLogFilter(logging.Filter):
     handler that emits ``extra=`` fields)."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if _unchanged_since_factory(record):
-            # Message and traceback already redacted; extra= came after.
-            if not _REDACTING_RECORD.get():
-                token = _REDACTING_RECORD.set(True)
-                try:
-                    _redact_extra_fields(record, _current_redactor())
-                except Exception:  # noqa: BLE001
-                    _withhold(record)
-                finally:
-                    _REDACTING_RECORD.reset(token)
-        else:
-            redact_log_record(record)
+        redact_log_record(record)
         return True
 
 
@@ -697,10 +800,6 @@ ALL_LOGGERS = "*"
 #: The namespaces whose records the installed record factory redacts (grows only).
 _REDACTED_NAMESPACES: set[str] = set()
 
-#: The one filter :func:`install_log_redaction` attaches to existing handlers.
-_HANDLER_FILTER = RedactingLogFilter()
-
-
 def install_log_redaction(
     *, namespaces: Union[str, Iterable[str]] = LOG_NAMESPACES
 ) -> None:
@@ -715,11 +814,13 @@ def install_log_redaction(
     also redacts what ``warnings.warn`` shows (wrapping ``warnings.showwarning``,
     so a warning still goes where it went before), what an uncaught exception
     prints in the main thread or any other, and what an exception ignored in a
-    ``__del__`` prints (``sys.unraisablehook``); and it attaches
-    :class:`RedactingLogFilter` to every handler that exists at that point
-    (``logging.lastResort`` included), which covers ``extra=`` fields and records
-    that never went through the factory (``logging.makeLogRecord``, a logger
-    class with its own ``makeRecord``). Call it as the first statement of a
+    ``__del__`` prints (``sys.unraisablehook``); and it wraps
+    ``logging.Logger.handle`` (once), so every record routed through any logger
+    is redacted with its ``extra=`` fields, whichever handler emits it
+    (including ones configured later, like uvicorn's, and
+    ``logging.lastResort``), even if it never went through the factory
+    (``logging.makeLogRecord``, a logger class with its own ``makeRecord``). A
+    record is redacted once: a later pass only does what is new. Call it as the first statement of a
     connector's ``server.py`` to cover records logged at import time too; a
     middleware constructed later only covers what follows it. The cost is one
     redaction per *emitted* record (records below the level are never created).
@@ -733,7 +834,7 @@ def install_log_redaction(
     if ALL_LOGGERS in _REDACTED_NAMESPACES:
         _install_redacting_showwarning()
         _install_redacting_excepthooks()
-        _filter_existing_handlers()
+        _wrap_logger_handle()
     previous = logging.getLogRecordFactory()
     if getattr(previous, _MARK, False):
         return
@@ -745,33 +846,31 @@ def install_log_redaction(
             name == ns or name.startswith(ns + ".") for ns in _REDACTED_NAMESPACES
         ):
             # extra= fields are set after the factory returns: none to redact yet.
-            if _REDACTING_RECORD.get():
-                redact_log_record(record)  # the nested-record rule
-            else:
-                _redact_guarded(record, extras=False)
-            try:
-                _FACTORY_REDACTED[record] = _fingerprint(record)
-            except TypeError:  # a record type that takes no weak reference
-                pass
+            _redact_once(record, extras=False)
         return record
 
     setattr(factory, _MARK, True)
     logging.setLogRecordFactory(factory)
 
 
-def _filter_existing_handlers() -> None:
-    """Attach :data:`_HANDLER_FILTER` to every live handler and to
-    ``logging.lastResort`` (once each)."""
-    refs = list(getattr(logging, "_handlerList", ()))
-    handlers = [ref() for ref in refs] + [logging.lastResort]
-    for handler in handlers:
-        if handler is None:
-            continue
-        try:
-            if not any(isinstance(f, RedactingLogFilter) for f in handler.filters):
-                handler.addFilter(_HANDLER_FILTER)
-        except Exception:  # noqa: BLE001 — a handler without filters is skipped
-            pass
+def _wrap_logger_handle() -> None:
+    """Redact every record routed through any logger (``logging.Logger.handle``,
+    wrapped once), with its ``extra=`` fields already set: the records the factory
+    never saw (``logging.makeLogRecord``, a logger class with its own
+    ``makeRecord``) and handlers configured later (uvicorn's ``dictConfig``) are
+    covered too. A record the factory redacted only has its ``extra=`` fields
+    redacted here."""
+    original = logging.Logger.handle
+    if getattr(original, _MARK, False):
+        return
+
+    def handle(self, record):
+        _redact_once(record, extras=True)
+        return original(self, record)
+
+    setattr(handle, _MARK, True)
+    handle.__wrapped__ = original
+    logging.Logger.handle = handle
 
 
 def _write_stderr(text: str) -> None:
@@ -781,7 +880,7 @@ def _write_stderr(text: str) -> None:
         return
     try:
         err.write(text)
-    except Exception:  # noqa: BLE001
+    except (OSError, ValueError):  # closed or broken at shutdown
         pass
 
 

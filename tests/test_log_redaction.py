@@ -356,35 +356,65 @@ def test_an_unrenderable_extra_field_is_withheld_alone(monkeypatch):
     assert record.obj == mw_mod.REDACTION_FAILED and _KEY not in record.url
 
 
-def test_records_that_bypass_the_factory_are_redacted_by_existing_handlers(
-    monkeypatch,
-):
+def test_records_that_bypass_the_factory_are_redacted_by_every_logger(monkeypatch):
     """``makeLogRecord`` and a logger's own ``makeRecord`` never call the record
-    factory: the filter attached to every handler at install time catches them."""
+    factory, and handlers configured after the install (uvicorn's ``dictConfig``)
+    carry no filter: ``Logger.handle`` is wrapped, so every record routed through
+    any logger is redacted, ``extra=`` fields included."""
+    import logging.config
+
     monkeypatch.setenv("FAL_KEY", _KEY)
+    install_log_redaction(namespaces=ALL_LOGGERS)
     logger = logging.getLogger("bypass.factory")
     out = io.StringIO()
-    handler = logging.StreamHandler(out)
+    handler = logging.StreamHandler(out)  # created after the install
+    handler.setFormatter(logging.Formatter("%(message)s | %(url)s"))
     logger.addHandler(handler)
+
+    class OwnRecords(logging.Logger):
+        def makeRecord(self, name, level, fn, lno, msg, args, exc_info,
+                       func=None, extra=None, sinfo=None):
+            record = logging.LogRecord(name, level, fn, lno, msg, args, exc_info)
+            record.url = (extra or {}).get("url", "-")
+            return record
+
+    own = OwnRecords("bypass.factory.own")
+    own.parent = logger
     try:
-        install_log_redaction(namespaces=ALL_LOGGERS)
-        assert any(isinstance(f, mw_mod.RedactingLogFilter) for f in handler.filters)
-        assert any(
-            isinstance(f, mw_mod.RedactingLogFilter)
-            for f in logging.lastResort.filters
-        )
-        install_log_redaction(namespaces=ALL_LOGGERS)  # attached once
-        assert sum(isinstance(f, mw_mod.RedactingLogFilter) for f in handler.filters) == 1
         logger.handle(logging.makeLogRecord(
-            {"name": "bypass.factory", "levelno": 30, "msg": f"made {_KEY}"}
+            {"name": "bypass.factory", "levelno": 30, "msg": f"made {_KEY}",
+             "url": f"https://x/?k={_KEY}"}
         ))
-        logger.handle(logging.LogRecord(
-            "bypass.factory", 30, __file__, 1, "direct %s", (_KEY,), None
-        ))
+        own.warning("own %s", _KEY, extra={"url": f"https://x/?k={_KEY}"})
+        logger.warning("extra", extra={"url": f"https://x/?k={_KEY}"})
     finally:
         logger.removeHandler(handler)
     text = out.getvalue()
-    assert "made" in text and "direct" in text and _KEY not in text
+    assert "made" in text and "own" in text and "extra |" in text
+    assert _KEY not in text and text.count("<redacted:env:FAL_KEY>") == 5
+
+
+def test_logger_handle_is_wrapped_once():
+    for _ in range(3):
+        install_log_redaction(namespaces=ALL_LOGGERS)
+    handle = logging.Logger.handle
+    assert getattr(handle, mw_mod._MARK, False)
+    assert not getattr(handle.__wrapped__, mw_mod._MARK, False)
+
+
+def test_last_resort_output_is_redacted(monkeypatch, capsys):
+    """A logger with no handler anywhere falls back to ``logging.lastResort``."""
+    monkeypatch.setenv("FAL_KEY", _KEY)
+    install_log_redaction(namespaces=ALL_LOGGERS)
+    monkeypatch.setattr(logging, "lastResort", logging.StreamHandler(sys.stderr))
+    root = logging.getLogger()
+    monkeypatch.setattr(root, "handlers", [])
+    logger = logging.getLogger("no.handlers.anywhere")
+    logger.handle(logging.makeLogRecord(
+        {"name": logger.name, "levelno": 40, "msg": f"orphan {_KEY}"}
+    ))
+    err = capsys.readouterr().err
+    assert "orphan <redacted:env:FAL_KEY>" in err and _KEY not in err
 
 
 def test_a_changed_environment_is_picked_up(monkeypatch):
@@ -589,4 +619,136 @@ def test_a_raw_thread_redacts_the_callers_header_key(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert caller_key not in out.getvalue() and "<redacted:x-fal-key>" in out.getvalue()
     assert "thread boom <redacted:x-fal-key>" in err and caller_key not in err
-    assert mw_mod.inflight_request_secrets() == ()  # removed when the call ended
+    assert mw_mod._INFLIGHT == {}  # no longer in flight...
+    # ...but still known for a while, for a worker that outlives the call
+    assert (caller_key, "x-fal-key") in mw_mod.inflight_request_secrets()
+
+
+# --- the second review of #5 -------------------------------------------------
+
+
+def _capture(name: str, fmt: str = "%(message)s"):
+    logger = logging.getLogger(name)
+    out = io.StringIO()
+    handler = logging.StreamHandler(out)
+    handler.setFormatter(logging.Formatter(fmt))
+    logger.addHandler(handler)
+    return logger, handler, out
+
+
+def test_a_withheld_nested_record_withholds_its_extra_fields_too(secret_env):
+    """A redactor that logs what it redacts, with ``extra=``: the record nested
+    too deep is withheld whole, its fields included."""
+    def chatty(text):
+        logging.getLogger("hostred").warning("redacting", extra={"payload": f"p {_KEY}"})
+        return mw_mod.redact_secrets(text)
+
+    host, handler, out = _capture("hostred", "%(message)s | %(payload)s")
+    token = mw_mod._CURRENT_REDACTOR.set(chatty)
+    try:
+        _emit("prov", "401 %s", _KEY)
+    finally:
+        mw_mod._CURRENT_REDACTOR.reset(token)
+        host.removeHandler(handler)
+    assert _KEY not in out.getvalue()
+    assert f"{mw_mod.REDACTION_FAILED} | {mw_mod.REDACTION_FAILED}" in out.getvalue()
+
+
+def test_a_record_logged_from_an_arguments_repr_is_redacted_not_withheld(secret_env):
+    """SQLAlchemy-style echo from a ``__repr__``: one level of nesting is
+    redacted normally, clean text kept, a key replaced."""
+    class Model:
+        def __repr__(self):
+            logging.getLogger("sqlalchemy.engine").warning("SELECT 1 -- %s", _KEY)
+            return "Model()"
+
+    sql, handler, out = _capture("sqlalchemy.engine")
+    try:
+        text = _emit("app", "loaded %r", Model())
+    finally:
+        sql.removeHandler(handler)
+    assert "loaded Model()" in text
+    assert "SELECT 1 -- <redacted:env:FAL_KEY>" in out.getvalue()
+    assert mw_mod.REDACTION_FAILED not in out.getvalue() and _KEY not in out.getvalue()
+
+
+def test_a_warning_from_an_arguments_str_under_capture_warnings(secret_env):
+    class Chatty:
+        def __str__(self):
+            warnings.warn("inner warning from __str__")
+            return f"w {_KEY}"
+
+    pyw, handler, out = _capture("py.warnings")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            logging.captureWarnings(True)
+            try:
+                text = _emit("x", "v=%s", Chatty())
+            finally:
+                logging.captureWarnings(False)
+    finally:
+        pyw.removeHandler(handler)
+    assert "inner warning from __str__" in out.getvalue()
+    assert mw_mod.REDACTION_FAILED not in out.getvalue()
+    assert "v=w <redacted:env:FAL_KEY>" in text
+
+
+def test_recently_ended_calls_stay_known_within_bounds(monkeypatch):
+    import time
+
+    first, second, third = (
+        (f"byo-key-{n}-0123456789abcdef", "x-fal-key") for n in range(3)
+    )
+    monkeypatch.setattr(mw_mod, "RECENT_CALLS_KEPT", 2)
+    for pair in (first, second, third):
+        mw_mod._register_inflight([pair], +1)
+        mw_mod._register_inflight([pair], -1)
+    known = mw_mod.inflight_request_secrets()
+    assert first not in known and second in known and third in known
+    monkeypatch.setattr(mw_mod, "RECENT_CALLS_SECONDS", 0.05)
+    fourth = ("byo-key-4-0123456789abcdef", "x-fal-key")
+    mw_mod._register_inflight([fourth], +1)
+    mw_mod._register_inflight([fourth], -1)
+    time.sleep(0.1)
+    assert fourth not in mw_mod.inflight_request_secrets()
+
+
+def test_a_callers_key_is_not_kept_compiled_once_forgotten(monkeypatch):
+    monkeypatch.setattr(mw_mod, "RECENT_CALLS_SECONDS", 0)  # no recent ring
+    pair = ("byo-forgotten-0123456789abcdef", "x-fal-key")
+    redact = mw_mod.secret_redactor(headers=dict, env_pattern=None)
+    mw_mod._register_inflight([pair], +1)
+    assert redact(f"k={pair[0]}") == "k=<redacted:x-fal-key>"
+    assert any(key[0] == pair for key in mw_mod._REQUEST_FORMS)
+    mw_mod._register_inflight([pair], -1)
+    assert redact(f"k={pair[0]}") == f"k={pair[0]}"
+    assert not any(key[0] == pair for key in mw_mod._REQUEST_FORMS)
+    assert not hasattr(mw_mod.escape_tolerant_pattern, "cache_info")
+
+
+def test_showwarning_redacts_the_source_line(monkeypatch, tmp_path):
+    monkeypatch.setenv("FAL_KEY", _KEY)
+    source = tmp_path / "provider_conf.py"
+    source.write_text(f"KEY = '{_KEY}'\n")
+    seen = []
+    with warnings.catch_warnings():
+        warnings.showwarning = lambda *a, **k: seen.append(a)
+        mw_mod._install_redacting_showwarning()
+        warnings.showwarning(UserWarning("clean"), UserWarning, str(source), 1)
+    ((message, category, filename, lineno, file, line),) = seen
+    assert str(message) == "clean" and line == "KEY = '<redacted:env:FAL_KEY>'\n"
+
+
+def test_a_traceback_whose_source_is_dirty_is_dropped(fresh_hooks, tmp_path):
+    """The exception renders clean but a frame's source line quotes the key:
+    the previous hook gets the exception without that traceback."""
+    source = tmp_path / "leaky.py"
+    source.write_text(f"raise RuntimeError('clean message')  # {_KEY}\n")
+    try:
+        exec(compile(source.read_text(), str(source), "exec"), {})
+    except RuntimeError:
+        info = sys.exc_info()
+    sys.excepthook(*info)
+    ((exc_type, exc, tb),) = fresh_hooks["sys"]
+    assert str(exc) == "clean message" and tb is None
