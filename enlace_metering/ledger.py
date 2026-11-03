@@ -14,6 +14,7 @@ a hostile identity nor a hostile operation name can escape the ledger prefix.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterator, MutableMapping, Optional
@@ -117,7 +118,13 @@ class UsageLedger:
             ts = _entry_ts(entry)
             if ts is None or ts >= since:
                 cost = entry.get("cost_usd")
-                if isinstance(cost, (int, float)):
+                # A NaN or inf row would poison the sum, and every cap compares
+                # against it (``nan >= cap`` is False forever); a bool is not money.
+                if (
+                    isinstance(cost, (int, float))
+                    and not isinstance(cost, bool)
+                    and math.isfinite(cost)
+                ):
                     total += float(cost)
         return total
 

@@ -79,9 +79,11 @@ CostEstimator = Callable[[str, Mapping[str, Any]], Optional[float]]
 CostExtractor = Callable[[Any], Optional[float]]
 
 #: Attributes an exception may hold its partial spend under, besides carrying it
-#: itself (``exc.cost_usd_actual``): a receipt object with the :data:`COST_KEYS`
-#: (braidio's failed ``weave_project`` raises with ``exc.weave_receipt``).
-PARTIAL_SPEND_CARRIERS = ("weave_receipt", "receipt")
+#: itself (``exc.cost_usd_actual``): a receipt object with the :data:`COST_KEYS`.
+#: ``spend_receipt`` is the generic name; braidio's failed ``weave_project``
+#: raises with ``exc.weave_receipt``. Namespaced on purpose: a bare ``receipt``
+#: is what a payments or HTTP client's exception may carry for something else.
+PARTIAL_SPEND_CARRIERS = ("spend_receipt", "weave_receipt")
 
 #: How many links of an exception's ``__cause__``/``__context__`` chain to search.
 #: fastmcp wraps a tool's exception in a ``ToolError``, so the spend is a link or
@@ -1177,14 +1179,23 @@ def _exception_chain(exc: BaseException, *, limit: int = MAX_EXCEPTION_CHAIN):
         exc = exc.__cause__ or exc.__context__
 
 
-def partial_spend(exc: BaseException) -> Optional[PartialSpend]:
+def partial_spend(
+    exc: BaseException,
+    *,
+    carriers: Iterable[str] = PARTIAL_SPEND_CARRIERS,
+    cost_keys: Iterable[str] = COST_KEYS,
+) -> Optional[PartialSpend]:
     """The spend a failed call carries on its exception, or ``None``.
 
     The convention: the exception, or an object it holds under one of
-    :data:`PARTIAL_SPEND_CARRIERS`, has a :data:`COST_KEYS` attribute (and
-    optionally ``has_unknown_costs``). The cause chain is searched, because the
-    exception this middleware catches is fastmcp's ``ToolError`` wrapping the
-    tool's own.
+    ``carriers``, has a ``cost_keys`` attribute and/or ``has_unknown_costs``.
+    The cause chain is searched, because the exception this middleware catches
+    is fastmcp's ``ToolError`` wrapping the tool's own; ``raise ... from None``
+    is still walked (through ``__context__``), since the spend happened. The
+    first carrier found wins: a wrapper that re-attaches the same receipt must
+    not count it twice. A carrier that says its costs are unknown is a lower
+    bound even when it reports no figure (``cost_usd_actual=None`` is how the
+    fleet spells "unpriced"), never free.
 
     >>> class Receipt:
     ...     cost_usd_actual, has_unknown_costs = 0.42, True
@@ -1197,20 +1208,29 @@ def partial_spend(exc: BaseException) -> Optional[PartialSpend]:
     >>> partial_spend(RuntimeError("nothing spent")) is None
     True
     """
+    carriers, cost_keys = tuple(carriers), tuple(cost_keys)
     for link in _exception_chain(exc):
-        holders = (link, *(getattr(link, a, None) for a in PARTIAL_SPEND_CARRIERS))
-        for holder in holders:
-            if holder is None:
-                continue
-            for key in COST_KEYS:
-                cost = getattr(holder, key, None)
-                if isinstance(cost, bool) or not isinstance(cost, (int, float)):
-                    continue
-                unknown = bool(getattr(holder, "has_unknown_costs", False))
-                if not (math.isfinite(cost) and cost >= 0):
-                    return PartialSpend(0.0, lower_bound=True)
-                return PartialSpend(float(cost), lower_bound=unknown)
+        for holder in (link, *(getattr(link, a, None) for a in carriers)):
+            if holder is not None:
+                spent = _spend_of(holder, cost_keys)
+                if spent is not None:
+                    return spent
     return None
+
+
+def _spend_of(holder, cost_keys: tuple) -> Optional[PartialSpend]:
+    """``holder``'s spend: its first numeric cost key, flagged a lower bound when
+    it says its costs are unknown or the figure is not a finite, non-negative
+    number; ``None`` when it carries nothing about spend at all."""
+    unknown = getattr(holder, "has_unknown_costs", False) is True
+    for key in cost_keys:
+        cost = getattr(holder, key, None)
+        if isinstance(cost, bool) or not isinstance(cost, (int, float)):
+            continue
+        if not (math.isfinite(cost) and cost >= 0):
+            return PartialSpend(0.0, lower_bound=True)
+        return PartialSpend(float(cost), lower_bound=unknown)
+    return PartialSpend(0.0, lower_bound=True) if unknown else None
 
 
 #: Characters allowed in the tool slug embedded in a ledger entry id. The tool name in
@@ -1342,7 +1362,8 @@ class MeteringMiddleware(Middleware):
         except Exception:  # noqa: BLE001 — never mask the tool's error
             _logger.warning(
                 "enlace_metering: partial-spend extractor failed; "
-                "error row flagged cost_is_lower_bound"
+                "error row flagged cost_is_lower_bound",
+                exc_info=True,
             )
             return {"cost_is_lower_bound": True}
         if spent is None:

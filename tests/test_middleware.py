@@ -931,13 +931,18 @@ def test_the_cap_counts_a_failed_calls_spend(monkeypatch):
 
 @pytest.mark.parametrize(
     "receipt",
-    [_Receipt(0.3, has_unknown_costs=True), _Receipt(float("inf")), _Receipt(-1.0)],
+    [
+        _Receipt(0.3, has_unknown_costs=True),
+        _Receipt(float("inf")),
+        _Receipt(-1.0),
+        _Receipt(None, has_unknown_costs=True),  # "unpriced": never free
+    ],
 )
 def test_an_uncertain_partial_spend_is_flagged_a_lower_bound(monkeypatch, receipt):
     monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
     entry, _ = _failing_call({}, _spend_then_fail(receipt))
     assert entry["cost_is_lower_bound"] is True
-    assert entry["cost_usd"] == (0.3 if receipt.has_unknown_costs else 0.0)
+    assert entry["cost_usd"] == (0.3 if receipt.cost_usd_actual == 0.3 else 0.0)
 
 
 def test_an_exception_itself_can_carry_the_spend(monkeypatch):
@@ -973,3 +978,24 @@ def test_a_cyclic_cause_chain_terminates():
     a, b = RuntimeError("a"), RuntimeError("b")
     a.__cause__, b.__cause__ = b, a
     assert mw_mod.partial_spend(a) is None
+
+
+def test_a_generic_receipt_attribute_is_not_read_as_spend(monkeypatch):
+    """``receipt`` is what a payments or HTTP client's error may carry for
+    something else; only the namespaced carriers count."""
+
+    async def _call(ctx):
+        err = RuntimeError("card declined")
+        err.receipt = _Receipt(99.0)
+        raise err
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, _ = _failing_call({}, _call)
+    assert "cost_usd" not in entry
+
+
+def test_carriers_are_injectable():
+    err = RuntimeError("x")
+    err.bill = _Receipt(0.1)
+    assert mw_mod.partial_spend(err) is None
+    assert mw_mod.partial_spend(err, carriers=("bill",)).cost_usd == 0.1
