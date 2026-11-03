@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "built_at": "2026-10-14T00:40:22Z",
+  "built_at": "2026-11-03T11:25:50Z",
   "package": {
     "name": "enlace_metering",
     "version": "0.0.1",
@@ -9,29 +9,29 @@
   },
   "git": {
     "available": true,
-    "commit": "00f81cd8591095a6b785237d6b0e0445338f519f",
-    "short_commit": "00f81cd",
+    "commit": "96b173475c4cf332c587772a078bfa8ec6bcda9d",
+    "short_commit": "96b1734",
     "branch": "main",
     "tags": [],
     "dirty": false,
     "remote_url": "https://github.com/i2mint/enlace_metering",
-    "commit_url": "https://github.com/i2mint/enlace_metering/commit/00f81cd8591095a6b785237d6b0e0445338f519f",
+    "commit_url": "https://github.com/i2mint/enlace_metering/commit/96b173475c4cf332c587772a078bfa8ec6bcda9d",
     "error": null
   },
   "ci": {
     "provider": "github",
     "repository": "i2mint/enlace_metering",
-    "sha": "00f81cd8591095a6b785237d6b0e0445338f519f",
+    "sha": "96b173475c4cf332c587772a078bfa8ec6bcda9d",
     "sha_in_history": true,
     "ref": "refs/heads/main",
     "ref_name": "main",
-    "run_id": "38491283013",
-    "run_url": "https://github.com/i2mint/enlace_metering/actions/runs/38491283013",
+    "run_id": "41627232112",
+    "run_url": "https://github.com/i2mint/enlace_metering/actions/runs/41627232112",
     "server_url": "https://github.com"
   },
   "tools": {
-    "epythet": "0.2.17",
-    "sphinx": "9.1.0",
+    "epythet": "0.2.22",
+    "sphinx": "9.1.1",
     "docutils": "0.22.4",
     "python": "3.12.15"
   },
@@ -64,7 +64,7 @@
     "relation": "unknown",
     "error": null
   },
-  "reproduce": "git clone https://github.com/i2mint/enlace_metering && cd enlace_metering\ngit checkout 00f81cd8591095a6b785237d6b0e0445338f519f\npip install \"epythet==0.2.17\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
+  "reproduce": "git clone https://github.com/i2mint/enlace_metering && cd enlace_metering\ngit checkout 96b173475c4cf332c587772a078bfa8ec6bcda9d\npip install \"epythet==0.2.22\"\nepythet quickstart . --ignore tests/ scrap/ examples/",
   "warnings": [],
   "alignment": {
     "aligned": true,

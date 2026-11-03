@@ -1,4 +1,4 @@
-> built 2026-10-14 00:40 UTC from 00f81cd (main) · enlace_metering 0.0.1. Details: build_info.json
+> built 2026-11-03 11:25 UTC from 96b1734 (main) · enlace_metering 0.0.1. Details: build_info.json
 
 # index.html.md
 
@@ -60,7 +60,7 @@ Forward-looking gating (deny a call that *would* cross a cap) needs a proposed-c
 
 ## Ledger layout
 
-Keyed `{principal}/{YYYY-MM}/{id}.json` so “what did X spend this month” is a cheap subtree scan. The middleware writes **write-ahead** (`started` → `done`/`error` under one id): a costed call never spends on a shared key without a recoverable trace. The store is injected, so it grows from a local `dol.Files` to `s3dol`/`sqldol` without touching callers.
+Keyed `{principal}/{YYYY-MM}/{id}.json` so “what did X spend this month” is a cheap subtree scan. The middleware writes **write-ahead** (`started` → `done`/`error` under one id): a costed call never spends on a shared key without a recoverable trace. A call that spends and *then* fails still counts: the `error` row’s `cost_usd` is read off the exception (`partial_spend`: the exception, or a `spend_receipt`/`weave_receipt` it carries, anywhere on its cause chain, with a `cost_usd_actual`/`cost_usd` attribute), and `cost_is_lower_bound` marks a row that may undercount. Override with `extract_partial_spend=`. The store is injected, so it grows from a local `dol.Files` to `s3dol`/`sqldol` without touching callers.
 
 ## Caller secrets in error text
 
@@ -558,7 +558,7 @@ Always allow — the meter still records, but nothing is gated (e.g. the owner).
 
 # About this build
 
-This documentation was built on **2026-10-14 00:40 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/00f81cd8591095a6b785237d6b0e0445338f519f"><code>00f81cd</code></a> on branch <code>main</code>, for **enlace_metering 0.0.1** (from <code>pyproject.toml</code>).
+This documentation was built on **2026-11-03 11:25 UTC** from commit <a href="https://github.com/i2mint/enlace_metering/commit/96b173475c4cf332c587772a078bfa8ec6bcda9d"><code>96b1734</code></a> on branch <code>main</code>, for **enlace_metering 0.0.1** (from <code>pyproject.toml</code>).
 
 #### NOTE
 Nothing suggests a mismatch: the tree was clean at the commit above, and the documented version is the one on PyPI.
@@ -567,7 +567,7 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 |                     |                                                                                                                                                               |
 |---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Commit              | <a href="https://github.com/i2mint/enlace_metering/commit/00f81cd8591095a6b785237d6b0e0445338f519f"><code>00f81cd8591095a6b785237d6b0e0445338f519f</code></a> |
+| Commit              | <a href="https://github.com/i2mint/enlace_metering/commit/96b173475c4cf332c587772a078bfa8ec6bcda9d"><code>96b173475c4cf332c587772a078bfa8ec6bcda9d</code></a> |
 | Branch              | <code>main</code>                                                                                                                                             |
 | Tags at this commit | none                                                                                                                                                          |
 | Working tree        | clean                                                                                                                                                         |
@@ -578,16 +578,16 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 |              |                                                                                              |
 |--------------|----------------------------------------------------------------------------------------------|
 | Repository   | <code>i2mint/enlace_metering</code>                                                          |
-| Run          | <a href="https://github.com/i2mint/enlace_metering/actions/runs/38491283013">38491283013</a> |
+| Run          | <a href="https://github.com/i2mint/enlace_metering/actions/runs/41627232112">41627232112</a> |
 | Ref          | <code>refs/heads/main</code>                                                                 |
-| Event commit | <code>00f81cd8591095a6b785237d6b0e0445338f519f</code> (in the history of the built commit)   |
+| Event commit | <code>96b173475c4cf332c587772a078bfa8ec6bcda9d</code> (in the history of the built commit)   |
 
 ## Tools
 
 |          |         |
 |----------|---------|
-| epythet  | 0.2.17  |
-| Sphinx   | 9.1.0   |
+| epythet  | 0.2.22  |
+| Sphinx   | 9.1.1   |
 | docutils | 0.22.4  |
 | Python   | 3.12.15 |
 
@@ -611,8 +611,8 @@ Nothing suggests a mismatch: the tree was clean at the commit above, and the doc
 
 ```bash
 git clone https://github.com/i2mint/enlace_metering && cd enlace_metering
-git checkout 00f81cd8591095a6b785237d6b0e0445338f519f
-pip install "epythet==0.2.17"
+git checkout 96b173475c4cf332c587772a078bfa8ec6bcda9d
+pip install "epythet==0.2.22"
 epythet quickstart . --ignore tests/ scrap/ examples/
 ```
 
