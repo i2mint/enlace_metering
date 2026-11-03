@@ -110,3 +110,27 @@ def test_naive_since_is_read_as_utc():
     naive_since = (NOW - timedelta(hours=1)).replace(tzinfo=None)
     assert led.spend_since("a@x.com", naive_since) == pytest.approx(2.0)
     assert led.count_since("a@x.com", naive_since) == 1
+
+
+def test_spend_since_ignores_non_finite_and_bool_costs():
+    """One NaN row would make every later cap comparison False (cap disabled
+    for the month); a bool is not money."""
+    import math
+    from datetime import datetime, timezone
+
+    from enlace_metering import UsageLedger
+
+    led = UsageLedger({})
+    now = datetime.now(timezone.utc)
+    for i, cost in enumerate([1.0, float("nan"), float("inf"), True, 0.5]):
+        led.record(
+            {
+                "principal": "o@x.com",
+                "id": f"r{i}",
+                "month": now.strftime("%Y-%m"),
+                "ts": now.isoformat(),
+                "cost_usd": cost,
+            }
+        )
+    spent = led.spend_since("o@x.com", now.replace(day=1, hour=0, minute=0))
+    assert math.isfinite(spent) and spent == 1.5

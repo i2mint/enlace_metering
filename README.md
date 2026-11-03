@@ -54,7 +54,7 @@ Forward-looking gating (deny a call that *would* cross a cap) needs a proposed-c
 
 ## Ledger layout
 
-Keyed `{principal}/{YYYY-MM}/{id}.json` so "what did X spend this month" is a cheap subtree scan. The middleware writes **write-ahead** (`started` → `done`/`error` under one id): a costed call never spends on a shared key without a recoverable trace. The store is injected, so it grows from a local `dol.Files` to `s3dol`/`sqldol` without touching callers.
+Keyed `{principal}/{YYYY-MM}/{id}.json` so "what did X spend this month" is a cheap subtree scan. The middleware writes **write-ahead** (`started` → `done`/`error` under one id): a costed call never spends on a shared key without a recoverable trace. A call that spends and *then* fails still counts: the `error` row's `cost_usd` is read off the exception (`partial_spend`: the exception, or a `spend_receipt`/`weave_receipt` it carries, anywhere on its cause chain, with a `cost_usd_actual`/`cost_usd` attribute), and `cost_is_lower_bound` marks a row that may undercount. Override with `extract_partial_spend=`. The store is injected, so it grows from a local `dol.Files` to `s3dol`/`sqldol` without touching callers.
 
 ## Caller secrets in error text
 

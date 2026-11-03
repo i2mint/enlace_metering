@@ -13,7 +13,9 @@ Wires the three metering concerns into every tool call, **fail-closed**:
    decides *before* the call runs (deny → refuse). Then a **write-ahead** ledger row
    is written (if that write fails the call is refused — money is never spent
    un-recordably), the tool runs, and the row is updated with the actual ``cost_usd``
-   + outcome. A failed call's error text is passed through a **redactor** first: a
+   + outcome. A call that fails *after spending* has its partial spend read off
+   the exception (:func:`partial_spend`) and recorded, so a cap counts it. A
+   failed call's error text is passed through a **redactor** first: a
    provider can quote a key back in its error (ElevenLabs does on a 401) — the
    caller's bring-your-own key from a request header, or the host's own key from
    its environment — and neither the persistent ledger row nor the re-raised
@@ -29,6 +31,7 @@ from __future__ import annotations
 import itertools
 import linecache
 import logging
+import math
 import os
 import re
 import sys
@@ -39,6 +42,7 @@ import warnings
 import weakref
 from collections import deque
 from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Callable, Iterable, Mapping, Optional, Union
@@ -74,6 +78,18 @@ CostEstimator = Callable[[str, Mapping[str, Any]], Optional[float]]
 #: Pull the *actual* ``cost_usd`` out of a tool result for the ledger.
 CostExtractor = Callable[[Any], Optional[float]]
 
+#: Attributes an exception may hold its partial spend under, besides carrying it
+#: itself (``exc.cost_usd_actual``): a receipt object with the :data:`COST_KEYS`.
+#: ``spend_receipt`` is the generic name; braidio's failed ``weave_project``
+#: raises with ``exc.weave_receipt``. Namespaced on purpose: a bare ``receipt``
+#: is what a payments or HTTP client's exception may carry for something else.
+PARTIAL_SPEND_CARRIERS = ("spend_receipt", "weave_receipt")
+
+#: How many links of an exception's ``__cause__``/``__context__`` chain to search.
+#: fastmcp wraps a tool's exception in a ``ToolError``, so the spend is a link or
+#: two down, never dozens; the bound is what makes a pathological chain cheap.
+MAX_EXCEPTION_CHAIN = 16
+
 #: Scrub caller secrets out of free text the connector did not author (a provider's
 #: error message) before it is persisted or re-raised: ``text -> clean text``.
 Redactor = Callable[[str], str]
@@ -102,7 +118,8 @@ SECRET_ENV_PATTERN = re.compile(
 #: ``SSH_KEY_PATH``, ``TOKEN_URL``, ``AWS_ACCESS_KEY_ID``): redacting those would maul
 #: every error that mentions an ordinary path or URL.
 NOT_SECRET_ENV_SUFFIX = re.compile(
-    r"_(prefix|path|file|dir|url|uri|id|name|type|header|ttl|seconds|size)$", re.IGNORECASE
+    r"_(prefix|path|file|dir|url|uri|id|name|type|header|ttl|seconds|size)$",
+    re.IGNORECASE,
 )
 
 #: A URL carrying a password in its userinfo (``DATABASE_URL=postgres://u:pw@h/db``):
@@ -278,7 +295,7 @@ def _refresh_inflight_view() -> None:
     global _INFLIGHT_VIEW, _VIEW_EXPIRES
     now = time.monotonic()
     kept = [entry for entry in _RECENT if entry[0] > now]
-    kept = kept[len(kept) - RECENT_CALLS_KEPT:] if RECENT_CALLS_KEPT > 0 else []
+    kept = kept[len(kept) - RECENT_CALLS_KEPT :] if RECENT_CALLS_KEPT > 0 else []
     _RECENT.clear()
     _RECENT.extend(kept)
     view = dict.fromkeys(_INFLIGHT)
@@ -316,7 +333,9 @@ def _variants(value: str) -> Iterable[str]:
 
 
 def _forms(
-    pairs: Iterable[tuple[str, str]], min_chars: int, compile: Callable[[str], re.Pattern]
+    pairs: Iterable[tuple[str, str]],
+    min_chars: int,
+    compile: Callable[[str], re.Pattern],
 ) -> dict[str, tuple[re.Pattern, str]]:
     """``{form: (pattern, mark)}`` for every form of every secret (first label wins)."""
     found: dict[str, tuple[re.Pattern, str]] = {}
@@ -481,7 +500,9 @@ def request_secret_redactor(
     'nothing to hide'
     """
     return secret_redactor(
-        header_pattern=header_pattern, env_pattern=None, min_chars=min_chars,
+        header_pattern=header_pattern,
+        env_pattern=None,
+        min_chars=min_chars,
         headers=headers,
     )
 
@@ -577,7 +598,9 @@ _CURRENT_REDACTOR: ContextVar[Optional[Redactor]] = ContextVar(
 )
 #: How deep in record redaction this context is: 1 while a record is redacted,
 #: 2 while a record logged *during* that one is (the re-entrancy guard).
-_REDACTING_DEPTH: ContextVar[int] = ContextVar("enlace_metering_redacting_depth", default=0)
+_REDACTING_DEPTH: ContextVar[int] = ContextVar(
+    "enlace_metering_redacting_depth", default=0
+)
 
 #: A record logged while another is redacted (by an argument's ``__repr__``, a
 #: warning, a host redactor) is redacted normally down to this depth; one logged
@@ -800,6 +823,7 @@ ALL_LOGGERS = "*"
 #: The namespaces whose records the installed record factory redacts (grows only).
 _REDACTED_NAMESPACES: set[str] = set()
 
+
 def install_log_redaction(
     *, namespaces: Union[str, Iterable[str]] = LOG_NAMESPACES
 ) -> None:
@@ -972,7 +996,9 @@ def _wrap_thread_excepthook(previous) -> None:
             except Exception:  # noqa: BLE001
                 pass
         name = getattr(thread, "name", None) or "<unknown>"
-        _write_stderr(f"Exception in thread {name}:\n{_redacted_print(exc_type, exc, tb)}")
+        _write_stderr(
+            f"Exception in thread {name}:\n{_redacted_print(exc_type, exc, tb)}"
+        )
 
     setattr(thread_hook, _MARK, True)
     threading.excepthook = thread_hook
@@ -994,7 +1020,9 @@ def _wrap_unraisablehook(previous) -> None:
     def unraisable_hook(unraisable):
         redact = _current_redactor()
         exc_type, exc, tb = (
-            unraisable.exc_type, unraisable.exc_value, unraisable.exc_traceback
+            unraisable.exc_type,
+            unraisable.exc_value,
+            unraisable.exc_traceback,
         )
         err_msg, obj = unraisable.err_msg, unraisable.object
         shown, clean_shown, clean_msg, safe = "", "", REDACTION_FAILED, None
@@ -1012,8 +1040,11 @@ def _wrap_unraisablehook(previous) -> None:
             )
         except Exception:  # noqa: BLE001
             safe = None
-        if safe is not None and safe[1] is exc and safe[2] is tb and (
-            clean_shown == shown and clean_msg == err_msg
+        if (
+            safe is not None
+            and safe[1] is exc
+            and safe[2] is tb
+            and (clean_shown == shown and clean_msg == err_msg)
         ):
             return previous(unraisable)
         if safe is not None:
@@ -1111,6 +1142,97 @@ def _default_extract_cost(result: Any) -> Optional[float]:
     return None
 
 
+@dataclass(frozen=True)
+class PartialSpend:
+    """What a call spent before it failed.
+
+    ``lower_bound`` says the call may have spent more than ``cost_usd`` (the
+    carrier marked its costs unknown, or reported a non-finite or negative
+    figure, which is recorded as ``0.0``).
+    """
+
+    cost_usd: float
+    lower_bound: bool = False
+
+
+#: Read a failed call's partial spend off its exception, or ``None`` when it
+#: carries none. Injected as ``MeteringMiddleware(extract_partial_spend=...)``.
+PartialSpendExtractor = Callable[[BaseException], Optional[PartialSpend]]
+
+
+def _exception_chain(exc: BaseException, *, limit: int = MAX_EXCEPTION_CHAIN):
+    """``exc`` then its causes (``__cause__``, else ``__context__``), cycle-safe.
+
+    >>> try:
+    ...     try:
+    ...         raise KeyError("inner")
+    ...     except KeyError as inner:
+    ...         raise ValueError("outer") from inner
+    ... except ValueError as outer:
+    ...     [type(e).__name__ for e in _exception_chain(outer)]
+    ['ValueError', 'KeyError']
+    """
+    seen = set()
+    while exc is not None and id(exc) not in seen and len(seen) < limit:
+        seen.add(id(exc))
+        yield exc
+        exc = exc.__cause__ or exc.__context__
+
+
+def partial_spend(
+    exc: BaseException,
+    *,
+    carriers: Iterable[str] = PARTIAL_SPEND_CARRIERS,
+    cost_keys: Iterable[str] = COST_KEYS,
+) -> Optional[PartialSpend]:
+    """The spend a failed call carries on its exception, or ``None``.
+
+    The convention: the exception, or an object it holds under one of
+    ``carriers``, has a ``cost_keys`` attribute and/or ``has_unknown_costs``.
+    The cause chain is searched, because the exception this middleware catches
+    is fastmcp's ``ToolError`` wrapping the tool's own; ``raise ... from None``
+    is still walked (through ``__context__``), since the spend happened. The
+    first carrier found wins: a wrapper that re-attaches the same receipt must
+    not count it twice. A carrier that says its costs are unknown is a lower
+    bound even when it reports no figure (``cost_usd_actual=None`` is how the
+    fleet spells "unpriced"), never free.
+
+    >>> class Receipt:
+    ...     cost_usd_actual, has_unknown_costs = 0.42, True
+    >>> err = RuntimeError("episode assembly failed")
+    >>> err.weave_receipt = Receipt()
+    >>> wrapped = ValueError("tool failed")
+    >>> wrapped.__cause__ = err
+    >>> partial_spend(wrapped)
+    PartialSpend(cost_usd=0.42, lower_bound=True)
+    >>> partial_spend(RuntimeError("nothing spent")) is None
+    True
+    """
+    carriers, cost_keys = tuple(carriers), tuple(cost_keys)
+    for link in _exception_chain(exc):
+        for holder in (link, *(getattr(link, a, None) for a in carriers)):
+            if holder is not None:
+                spent = _spend_of(holder, cost_keys)
+                if spent is not None:
+                    return spent
+    return None
+
+
+def _spend_of(holder, cost_keys: tuple) -> Optional[PartialSpend]:
+    """``holder``'s spend: its first numeric cost key, flagged a lower bound when
+    it says its costs are unknown or the figure is not a finite, non-negative
+    number; ``None`` when it carries nothing about spend at all."""
+    unknown = getattr(holder, "has_unknown_costs", False) is True
+    for key in cost_keys:
+        cost = getattr(holder, key, None)
+        if isinstance(cost, bool) or not isinstance(cost, (int, float)):
+            continue
+        if not (math.isfinite(cost) and cost >= 0):
+            return PartialSpend(0.0, lower_bound=True)
+        return PartialSpend(float(cost), lower_bound=unknown)
+    return PartialSpend(0.0, lower_bound=True) if unknown else None
+
+
 #: Characters allowed in the tool slug embedded in a ledger entry id. The tool name in
 #: a ``tools/call`` is client-supplied and reaches the middleware *before* the tool is
 #: resolved, so it must never flow verbatim into a storage key.
@@ -1150,6 +1272,10 @@ class MeteringMiddleware(Middleware):
             ``structured_content['cost_usd']``).
         metered_tools: when given, only these tools are gated (others are recorded,
             never denied); ``None`` gates every tool.
+        extract_partial_spend: reads what a FAILED call spent off its exception
+            (default :func:`partial_spend`), recorded as the error row's
+            ``cost_usd`` so the cap counts a call that spent and then failed;
+            ``cost_is_lower_bound`` marks a row that may undercount.
         redact: the :data:`Redactor` applied to a failed call's error text before it
             is written to the ledger and re-raised (default :data:`redact_secrets`:
             the in-flight request's credential headers and the host's credential
@@ -1175,6 +1301,7 @@ class MeteringMiddleware(Middleware):
         estimate_cost: Optional[CostEstimator] = None,
         extract_cost: Optional[CostExtractor] = None,
         metered_tools: Optional[set[str]] = None,
+        extract_partial_spend: Optional[PartialSpendExtractor] = None,
         redact: Optional[Redactor] = None,
         redact_logs: Union[bool, str, Iterable[str]] = ALL_LOGGERS,
     ):
@@ -1185,6 +1312,7 @@ class MeteringMiddleware(Middleware):
         self.allow_any = allow_any_authenticated
         self.estimate_cost = estimate_cost
         self.extract_cost = extract_cost or _default_extract_cost
+        self.extract_partial_spend = extract_partial_spend or partial_spend
         # When given, only these tools are GATED by the policy; others are still
         # recorded but never denied — so a principal who hit their cap can still call
         # free/read-only tools (list/get/help) to retrieve what they already made.
@@ -1221,6 +1349,29 @@ class MeteringMiddleware(Middleware):
                 "refusing (configure `allowed` or pass allow_any_authenticated=True)"
             )
         return email
+
+    def _partial_spend_fields(self, exc: BaseException) -> dict:
+        """The ledger fields for what a failed call spent: none, or its cost.
+
+        A broken extractor must not replace the tool's error with its own, so
+        it is caught; the row is then flagged as possibly undercounting rather
+        than read as free.
+        """
+        try:
+            spent = self.extract_partial_spend(exc)
+        except Exception:  # noqa: BLE001 — never mask the tool's error
+            _logger.warning(
+                "enlace_metering: partial-spend extractor failed; "
+                "error row flagged cost_is_lower_bound",
+                exc_info=True,
+            )
+            return {"cost_is_lower_bound": True}
+        if spent is None:
+            return {}
+        fields = {"cost_usd": spent.cost_usd}
+        if spent.lower_bound:
+            fields["cost_is_lower_bound"] = True
+        return fields
 
     async def on_call_tool(self, context, call_next):
         email = self._authorize()
@@ -1306,6 +1457,7 @@ class MeteringMiddleware(Middleware):
             except Exception:  # noqa: BLE001 — a broken __repr__ must not chain exc
                 rendered = type(exc).__name__
             entry["error"] = _redact_safely(self.redact, rendered)
+            entry.update(self._partial_spend_fields(exc))
             entry["elapsed_s"] = (time.time_ns() - t0) / 1e9
             scrubbed = _scrubbed_exception(exc, self.redact)
             if scrubbed is None:
@@ -1333,6 +1485,10 @@ __all__ = [
     "current_email",
     "CostEstimator",
     "CostExtractor",
+    "PartialSpend",
+    "PartialSpendExtractor",
+    "partial_spend",
+    "PARTIAL_SPEND_CARRIERS",
     "Redactor",
     "secret_redactor",
     "redact_secrets",
