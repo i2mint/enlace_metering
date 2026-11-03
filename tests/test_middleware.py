@@ -527,9 +527,17 @@ def test_server_env_key_redacted_over_real_http(monkeypatch):
 @pytest.mark.parametrize(
     "name",
     [
-        "ELEVENLABS_API_KEY", "ELEVEN_API_KEY", "FAL_KEY", "SUNO_API_KEY",
-        "OPENAI_API_KEY", "ENLACE_SIGNING_KEY", "REELEE_MCP_DOWNLOAD_SECRET",
-        "SHARED_PW_PDF_TOOLS", "GITHUB_TOKEN", "DB_PASSWORD", "fal_key",
+        "ELEVENLABS_API_KEY",
+        "ELEVEN_API_KEY",
+        "FAL_KEY",
+        "SUNO_API_KEY",
+        "OPENAI_API_KEY",
+        "ENLACE_SIGNING_KEY",
+        "REELEE_MCP_DOWNLOAD_SECRET",
+        "SHARED_PW_PDF_TOOLS",
+        "GITHUB_TOKEN",
+        "DB_PASSWORD",
+        "fal_key",
     ],
 )
 def test_env_credentials_are_recognised_by_name(monkeypatch, name):
@@ -748,8 +756,17 @@ def test_transformed_forms_of_a_key_are_redacted(quoted):
 
 @pytest.mark.parametrize(
     "name",
-    ["SMTP_PASS", "GPG_PASSPHRASE", "SENTRY_DSN", "API_KEYS", "APP_SECRETS",
-     "GITHUB_PAT", "DB_CREDS", "SSH_PRIVATE_KEY", "PRIVATEKEY"],
+    [
+        "SMTP_PASS",
+        "GPG_PASSPHRASE",
+        "SENTRY_DSN",
+        "API_KEYS",
+        "APP_SECRETS",
+        "GITHUB_PAT",
+        "DB_CREDS",
+        "SSH_PRIVATE_KEY",
+        "PRIVATEKEY",
+    ],
 )
 def test_more_credential_names(monkeypatch, name):
     redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {name: _ENV_KEY})
@@ -757,10 +774,13 @@ def test_more_credential_names(monkeypatch, name):
 
 
 @pytest.mark.parametrize(
-    "name", ["S3_KEY_PREFIX", "SSH_KEY_PATH", "TOKEN_URL", "AWS_ACCESS_KEY_ID", "KEY_FILE"]
+    "name",
+    ["S3_KEY_PREFIX", "SSH_KEY_PATH", "TOKEN_URL", "AWS_ACCESS_KEY_ID", "KEY_FILE"],
 )
 def test_names_about_a_credential_are_not_one(name):
-    redact = mw_mod.secret_redactor(headers=dict, environ=lambda: {name: "uploads/area"})
+    redact = mw_mod.secret_redactor(
+        headers=dict, environ=lambda: {name: "uploads/area"}
+    )
     assert redact("wrote uploads/area") == "wrote uploads/area"
 
 
@@ -771,7 +791,7 @@ def test_a_password_in_any_url_is_redacted():
 
 
 #: A credential with the characters repr() and JSON escape.
-_ESCAPED_KEY = 'pa\\ss"wo\'rd-0123456'
+_ESCAPED_KEY = "pa\\ss\"wo'rd-0123456"
 
 
 @pytest.mark.parametrize(
@@ -862,3 +882,94 @@ def test_backslash_punctuation_pairs_stay_linear():
     t0 = time.perf_counter()
     redact(text)
     assert time.perf_counter() - t0 < 1.0
+
+
+# --- a call that spends and then fails is still metered (enlace_metering#11) ---------
+
+
+class _Receipt:
+    def __init__(self, cost_usd_actual, has_unknown_costs=False):
+        self.cost_usd_actual = cost_usd_actual
+        self.has_unknown_costs = has_unknown_costs
+
+
+def _spend_then_fail(receipt, *, wrap=True):
+    """A tool that synthesized (and billed) and then failed, carrying its receipt;
+    fastmcp wraps the tool's exception in a ToolError, so the receipt is a cause."""
+
+    async def _call(ctx):
+        inner = RuntimeError("episode assembly failed")
+        inner.weave_receipt = receipt
+        if not wrap:
+            raise inner
+        raise ToolError("Error calling tool 'weave_project'") from inner
+
+    return _call
+
+
+@pytest.mark.parametrize("wrap", [True, False])
+def test_a_failed_call_records_its_partial_spend(monkeypatch, wrap):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, _ = _failing_call({}, _spend_then_fail(_Receipt(0.42), wrap=wrap))
+    assert entry["status"] == "error"
+    assert entry["cost_usd"] == pytest.approx(0.42)
+    assert "cost_is_lower_bound" not in entry
+
+
+def test_the_cap_counts_a_failed_calls_spend(monkeypatch):
+    """The point of recording it: spend-then-fail cannot dodge the cap."""
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    led = UsageLedger({})
+    mw = MeteringMiddleware(
+        led, policy=credit_cap(0.5, period="month"), allowed={"o@x.com"}
+    )
+    with pytest.raises(ToolError):
+        _run(mw.on_call_tool(_Ctx("weave_project"), _spend_then_fail(_Receipt(0.6))))
+    with pytest.raises(ToolError, match="usage limit reached"):
+        _run(mw.on_call_tool(_Ctx("weave_project"), _ok_call_next))
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    [_Receipt(0.3, has_unknown_costs=True), _Receipt(float("inf")), _Receipt(-1.0)],
+)
+def test_an_uncertain_partial_spend_is_flagged_a_lower_bound(monkeypatch, receipt):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, _ = _failing_call({}, _spend_then_fail(receipt))
+    assert entry["cost_is_lower_bound"] is True
+    assert entry["cost_usd"] == (0.3 if receipt.has_unknown_costs else 0.0)
+
+
+def test_an_exception_itself_can_carry_the_spend(monkeypatch):
+    async def _call(ctx):
+        err = RuntimeError("failed after spending")
+        err.cost_usd_actual = 0.2
+        raise err
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, _ = _failing_call({}, _call)
+    assert entry["cost_usd"] == pytest.approx(0.2)
+
+
+def test_a_failure_without_a_spend_records_no_cost(monkeypatch):
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, _ = _failing_call({}, _provider_401())
+    assert "cost_usd" not in entry and "cost_is_lower_bound" not in entry
+
+
+def test_a_broken_extractor_keeps_the_tools_error(monkeypatch):
+    def _broken(exc):
+        raise RuntimeError("extractor bug")
+
+    monkeypatch.setattr(mw_mod, "token_email", lambda: "o@x.com")
+    entry, raised = _failing_call(
+        {}, _spend_then_fail(_Receipt(0.4)), extract_partial_spend=_broken
+    )
+    assert "weave_project" in str(raised)  # the tool's error, not the extractor's
+    assert entry["cost_is_lower_bound"] is True
+
+
+def test_a_cyclic_cause_chain_terminates():
+    a, b = RuntimeError("a"), RuntimeError("b")
+    a.__cause__, b.__cause__ = b, a
+    assert mw_mod.partial_spend(a) is None
